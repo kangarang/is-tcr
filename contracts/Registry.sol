@@ -23,6 +23,7 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
+    event _TokenSupplyIncreased(uint amount, address indexed to);
 
     using SafeMath for uint;
 
@@ -254,6 +255,12 @@ contract Registry {
         require(token.transfer(msg.sender, reward));
 
         emit _RewardClaimed(_challengeID, reward, msg.sender);
+    }
+
+    function increaseTokenSupply(uint _incAmount, address _to) public {
+        require(token.increaseSupply(_incAmount, _to));
+
+        _TokenSupplyIncreased(_incAmount, _to);
     }
 
     // --------

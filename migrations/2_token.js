@@ -31,7 +31,7 @@ module.exports = (deployer, network, accounts) => {
   if (config.token.deployToken) {
     deployer.deploy(
       Token, config.token.supply, config.token.name, config.token.decimals,
-      config.token.symbol, accounts[0],
+      config.token.symbol, accounts[2],
     )
       .then(async () => giveTokensTo(config.token.tokenHolders));
   } else {
