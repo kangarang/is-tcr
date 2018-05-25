@@ -1,6 +1,6 @@
 pragma solidity ^0.4.20;
 
-import "tokens/eip20/EIP20.sol";
+import "./EIP621OraclizedToken.sol";
 import "./ProxyFactory.sol";
 import "./Registry.sol";
 

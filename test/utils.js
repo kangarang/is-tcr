@@ -13,7 +13,7 @@ const ethQuery = new Eth(new HttpProvider('http://localhost:7545'));
 const PLCRVoting = artifacts.require('PLCRVoting.sol');
 const Parameterizer = artifacts.require('Parameterizer.sol');
 const Registry = artifacts.require('Registry.sol');
-const Token = artifacts.require('EIP20.sol');
+const Token = artifacts.require('EIP621OraclizedToken.sol');
 
 const PLCRFactory = artifacts.require('PLCRFactory.sol');
 const ParameterizerFactory = artifacts.require('ParameterizerFactory.sol');

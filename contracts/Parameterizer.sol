@@ -1,7 +1,7 @@
 pragma solidity^0.4.11;
 
-import "./PLCRVoting.sol";
-import "tokens/eip20/EIP20Interface.sol";
+import "./EIP621OraclizedToken.sol";
+import "plcrvoting/PLCRVoting.sol";
 import "zeppelin/math/SafeMath.sol";
 
 contract Parameterizer {

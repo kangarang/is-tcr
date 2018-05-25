@@ -1,5 +1,5 @@
 pragma solidity ^0.4.8;
-import "tokens/eip20/EIP20Interface.sol";
+import "EIP621OraclizedToken.sol";
 import "dll/DLL.sol";
 import "attrstore/AttributeStore.sol";
 import "zeppelin/math/SafeMath.sol";
