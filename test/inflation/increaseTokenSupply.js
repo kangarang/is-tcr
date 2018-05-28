@@ -1,13 +1,10 @@
 /* eslint-env mocha */
-/* global assert contract artifacts */
-const Registry = artifacts.require('Registry.sol');
-const Token = artifacts.require('EIP621OraclizedToken.sol');
-
+/* global assert contract */
 const utils = require('../utils.js');
 
 // const BN = small => new BNJS(small.toString());
 
-contract('Registry / EIP621OraclizedToken', (accounts) => {
+contract('Inflation', (accounts) => {
   const defaultTo = accounts[1];
   const oracle = accounts[2];
 
@@ -17,9 +14,13 @@ contract('Registry / EIP621OraclizedToken', (accounts) => {
 
     // new token, new registry each iteration
     beforeEach(async () => {
-      registry = await Registry.deployed();
-      token = await Token.deployed();
+      const { registryProxy, tokenInstance } = await utils.getProxies(accounts[2]);
+      registry = registryProxy;
+      token = tokenInstance;
+
+      await utils.approveProxies(accounts, token, false, false, registry);
     });
+
 
     it('Should change the supply oracle to the registry', async () => {
       // change the supplyOracle
@@ -29,14 +30,24 @@ contract('Registry / EIP621OraclizedToken', (accounts) => {
       assert.strictEqual(newOracle, registry.address, 'oracle was not changed correctly');
     });
 
-    it('Should increase the supply as the oracle via the registry', async () => {
+    it('Should change the supply oracle to the registry & increase the supply via the registry', async () => {
+      // verify: correct oracle
+      const actualOracle = await token.supplyOracle.call();
+      assert.strictEqual(actualOracle, oracle, 'incorrect oracle');
+
+      // change the supplyOracle
+      await utils.as(oracle, token.changeSupplyOracle, registry.address);
+      // verify: supplyOracle === registry
+      const newOracle = await token.supplyOracle.call();
+      assert.strictEqual(newOracle, registry.address, 'oracle was not changed correctly');
+
       // initial supply / balance
       const initSupply = await token.totalSupply.call();
       const initBalance = await token.balanceOf.call(defaultTo);
 
-      // inflate
-      const incAmount = 10;
-      await utils.as(oracle, registry.increaseTokenSupply, incAmount, defaultTo);
+      // inflate the supply
+      const incAmount = '10';
+      await registry.increaseTokenSupply(incAmount, defaultTo);
 
       // new supply / balance
       const newSupply = await token.totalSupply.call();

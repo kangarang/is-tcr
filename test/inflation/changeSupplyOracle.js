@@ -1,15 +1,8 @@
 /* eslint-env mocha */
-/* global assert contract artifacts */
-const Registry = artifacts.require('Registry.sol');
-const Token = artifacts.require('EIP621OraclizedToken.sol');
-
+/* global assert contract */
 const utils = require('../utils.js');
 
-contract('EIP621OraclizedToken', (accounts) => {
-  const initialAmount = 1000;
-  const tokenName = 'admiralCoin';
-  const decimalUnits = 2;
-  const tokenSymbol = 'MARK';
+contract('Inflation', (accounts) => {
   const oracle = accounts[2];
 
   describe('As the oracle', () => {
@@ -17,14 +10,11 @@ contract('EIP621OraclizedToken', (accounts) => {
     let token;
 
     beforeEach(async () => {
-      token = await Token.new(
-        initialAmount,
-        tokenName,
-        decimalUnits,
-        tokenSymbol,
-        oracle,
-      );
-      registry = await Registry.deployed();
+      const { registryProxy, tokenInstance } = await utils.getProxies(accounts[2]);
+      registry = registryProxy;
+      token = tokenInstance;
+
+      await utils.approveProxies(accounts, token, false, false, registry);
     });
 
     it('Should change the supply oracle', async () => {
