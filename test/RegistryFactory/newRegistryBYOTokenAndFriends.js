@@ -1,9 +1,9 @@
 /* eslint-env mocha */
 /* global contract assert artifacts */
 
-const EIP20 = artifacts.require('tokens/eip20/EIP20.sol');
-const PLCRFactory = artifacts.require('./PLCRFactory.sol');
-const PLCRVoting = artifacts.require('./PLCRVoting.sol');
+const Token = artifacts.require('tokens/eip621/EIP621OraclizedToken.sol');
+const PLCRFactory = artifacts.require('plcr-revival/PLCRFactory.sol');
+const PLCRVoting = artifacts.require('plcr-revival/PLCRVoting.sol');
 const ParameterizerFactory = artifacts.require('./ParameterizerFactory.sol');
 const Parameterizer = artifacts.require('./Parameterizer.sol');
 const RegistryFactory = artifacts.require('./RegistryFactory.sol');
@@ -32,12 +32,13 @@ contract('RegistryFactory', (accounts) => {
         decimals: '2',
         symbol: 'TST',
       };
-      // new EIP20 token
-      const token = await EIP20.new(
+      // new EIP621OraclizedToken token
+      const token = await Token.new(
         tokenParams.supply,
         tokenParams.name,
         tokenParams.decimals,
         tokenParams.symbol,
+        accounts[2],
       );
       // new plcr using factory/proxy
       const plcrReceipt = await plcrFactory.newPLCRBYOToken(token.address);

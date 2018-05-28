@@ -1,8 +1,8 @@
 pragma solidity ^0.4.11;
 
-import "./EIP621OraclizedToken.sol";
+import "tokens/eip621/EIP621OraclizedToken.sol";
 import "./Parameterizer.sol";
-import "plcrvoting/PLCRVoting.sol";
+import "plcr-revival/PLCRVoting.sol";
 import "zeppelin/math/SafeMath.sol";
 
 contract Registry {
@@ -65,7 +65,7 @@ contract Registry {
         require(_voting != 0 && address(voting) == 0);
         require(_parameterizer != 0 && address(parameterizer) == 0);
 
-        token = EIP20Interface(_token);
+        token = EIP621OraclizedToken(_token);
         voting = PLCRVoting(_voting);
         parameterizer = Parameterizer(_parameterizer);
         name = _name;

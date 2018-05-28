@@ -10,14 +10,15 @@ const fs = require('fs');
 const ethRPC = new EthRPC(new HttpProvider('http://localhost:7545'));
 const ethQuery = new Eth(new HttpProvider('http://localhost:7545'));
 
-const PLCRVoting = artifacts.require('PLCRVoting.sol');
-const Parameterizer = artifacts.require('Parameterizer.sol');
-const Registry = artifacts.require('Registry.sol');
-const Token = artifacts.require('EIP621OraclizedToken.sol');
+const Token = artifacts.require('tokens/eip621/EIP621OraclizedToken.sol');
+const PLCRFactory = artifacts.require('plcr-revival/PLCRFactory.sol');
+const PLCRVoting = artifacts.require('plcr-revival/PLCRVoting.sol');
 
-const PLCRFactory = artifacts.require('PLCRFactory.sol');
 const ParameterizerFactory = artifacts.require('ParameterizerFactory.sol');
 const RegistryFactory = artifacts.require('RegistryFactory.sol');
+
+const Parameterizer = artifacts.require('Parameterizer.sol');
+const Registry = artifacts.require('Registry.sol');
 
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
@@ -25,13 +26,14 @@ const paramConfig = config.paramDefaults;
 const BN = small => new Eth.BN(small.toString(10), 10);
 
 const utils = {
-  getProxies: async () => {
+  getProxies: async (supplyOracle) => {
     const plcrFactory = await PLCRFactory.deployed();
     const plcrReceipt = await plcrFactory.newPLCRWithToken(
       config.token.supply,
       config.token.name,
       config.token.decimals,
       config.token.symbol,
+      supplyOracle,
     );
     const plcr = PLCRVoting.at(plcrReceipt.logs[0].args.plcr);
     const token = Token.at(plcrReceipt.logs[0].args.token);
@@ -85,6 +87,7 @@ const utils = {
       if (registry) {
         await token.approve(registry.address, 10000000000, { from: user });
       }
+      return user;
     }))
   ),
 

@@ -1,12 +1,12 @@
 pragma solidity ^0.4.20;
 
-import "./EIP621OraclizedToken.sol";
+import "tokens/eip621/EIP621OraclizedToken.sol";
 import "./ProxyFactory.sol";
 import "./Registry.sol";
 
 contract RegistryFactory {
 
-    event NewRegistry(address creator, EIP20 token, address plcr, address parameterizer, address registry);
+    event NewRegistry(address creator, EIP621OraclizedToken token, address plcr, address parameterizer, Registry registry);
 
     ProxyFactory proxyFactory;
     Registry canonizedRegistry;
@@ -23,7 +23,7 @@ contract RegistryFactory {
     @param _token an EIP20 token to be consumed by the new Registry contract
     */
     function newRegistryBYOTokenAndFriends(
-        EIP20 _token,
+        EIP621OraclizedToken _token,
         address _plcr,
         address _parameterizer,
         string _name
@@ -52,8 +52,8 @@ contract RegistryFactory {
         address _parameterizer,
         string _registryName
     ) public returns (Registry) {
-        EIP20 token = new EIP20(_supply, _tokenName, _decimals, _symbol);
         Registry registry = Registry(proxyFactory.createProxy(canonizedRegistry, ""));
+        EIP621OraclizedToken token = new EIP621OraclizedToken(_supply, _tokenName, _decimals, _symbol, registry);
 
         registry.init(token, _plcr, _parameterizer, _registryName);
         // Give all the tokens to the Registry creator
