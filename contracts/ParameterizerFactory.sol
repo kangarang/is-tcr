@@ -5,7 +5,7 @@ import "./ProxyFactory.sol";
 
 contract ParameterizerFactory {
 
-    event NewParameterizer(address creator, address token, address plcr, address parameterizer);
+    event NewParameterizer(address creator, address token, address plcr, Parameterizer parameterizer);
 
     ProxyFactory proxyFactory;
     Parameterizer canonizedParameterizer;

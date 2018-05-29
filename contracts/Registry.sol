@@ -24,6 +24,7 @@ contract Registry {
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _TokenSupplyIncreased(uint amount, address indexed to);
+    event _TokenSupplyDecreased(uint amount, address indexed from);
 
     using SafeMath for uint;
 
@@ -42,6 +43,7 @@ contract Registry {
         uint stake;             // Number of tokens at stake for either party during challenge
         uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
+        uint totalSupply;       // Number of tokens in circulation at time zero of challenge
     }
 
     // Maps challengeIDs to associated challenge data
@@ -56,6 +58,11 @@ contract Registry {
     Parameterizer public parameterizer;
     string public name;
 
+    // - The registry explicitly tracks the total number of tokens staked in listings and applications
+    // (and not including tokens staked by challengers).
+    uint public totalCandidateStake;
+    uint public numCandidates;
+
     /**
     @dev Initializer. Can only be called once.
     @param _token The address where the ERC20 token contract is deployed
@@ -69,6 +76,8 @@ contract Registry {
         voting = PLCRVoting(_voting);
         parameterizer = Parameterizer(_parameterizer);
         name = _name;
+        totalCandidateStake = 0;
+        numCandidates = 0;
     }
 
     // --------------------
@@ -95,6 +104,10 @@ contract Registry {
         listing.applicationExpiry = block.timestamp.add(parameterizer.get("applyStageLen"));
         listing.unstakedDeposit = _amount;
 
+        // increase global candidate stake
+        totalCandidateStake += listings[_listingHash].unstakedDeposit;
+        numCandidates += 1;
+
         // Transfers tokens from user to Registry contract
         require(token.transferFrom(listing.owner, this, _amount));
 
@@ -114,6 +127,9 @@ contract Registry {
         listing.unstakedDeposit += _amount;
         require(token.transferFrom(msg.sender, this, _amount));
 
+        // increase global candidate stake
+        totalCandidateStake += _amount;
+
         emit _Deposit(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
 
@@ -131,6 +147,9 @@ contract Registry {
 
         listing.unstakedDeposit -= _amount;
         require(token.transfer(msg.sender, _amount));
+
+        // decrease global candidate stake
+        totalCandidateStake -= _amount;
 
         emit _Withdrawal(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
@@ -193,7 +212,8 @@ contract Registry {
             rewardPool: ((100 - parameterizer.get("dispensationPct")) * minDeposit) / 100,
             stake: minDeposit,
             resolved: false,
-            totalTokens: 0
+            totalTokens: 0,
+            totalSupply: token.totalSupply()
         });
 
         // Updates listingHash to store most recent challenge
@@ -257,10 +277,16 @@ contract Registry {
         emit _RewardClaimed(_challengeID, reward, msg.sender);
     }
 
-    function increaseTokenSupply(uint _incAmount, address _to) public {
+    function increaseTokenSupply(uint _incAmount, address _to) internal {
         require(token.increaseSupply(_incAmount, _to));
 
-        _TokenSupplyIncreased(_incAmount, _to);
+        emit _TokenSupplyIncreased(_incAmount, _to);
+    }
+
+    function decreaseTokenSupply(uint _decAmount, address _from) internal {
+        require(token.decreaseSupply(_decAmount, _from));
+
+        emit _TokenSupplyDecreased(_decAmount, _from);
     }
 
     // --------
@@ -431,6 +457,10 @@ contract Registry {
         } else {
             emit _ApplicationRemoved(_listingHash);
         }
+
+        // decrease global candidate stake
+        totalCandidateStake -= listing.unstakedDeposit;
+        numCandidates -= 1;
 
         // Deleting listing to prevent reentry
         address owner = listing.owner;
