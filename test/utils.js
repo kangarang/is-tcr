@@ -55,6 +55,7 @@ const utils = {
         paramConfig.pDispensationPct,
         paramConfig.voteQuorum,
         paramConfig.pVoteQuorum,
+        paramConfig.inflationFactor,
       ],
     );
     const parameterizer = Parameterizer.at(parameterizerReceipt.logs[0].args.parameterizer);

@@ -61,6 +61,11 @@ contract Parameterizer {
     PLCRVoting public voting;
     uint public PROCESSBY = 604800; // 7 days
 
+    modifier onlySupplyOracle {
+        require(msg.sender == token.supplyOracle());
+        _;
+    }
+
     /**
     @dev Initializer        Can only be called once
     @param _token           The address where the ERC20 token contract is deployed
@@ -89,6 +94,15 @@ contract Parameterizer {
         set("pDispensationPct", _parameters[9]);  // percentage of losing party's deposit distributed to winning party in parameterizer
         set("voteQuorum", _parameters[10]);       // type of majority out of 100 necessary for vote success
         set("pVoteQuorum", _parameters[11]);      // type of majority out of 100 necessary for vote success in parameterizer
+        set("inflationFactor", _parameters[12]);  // inflation multiplier, determines the majority_bloc inflation reward
+    }
+
+    function setMinDeposit(uint _majorityBlocInflation, uint _tokenSupply) public onlySupplyOracle returns (uint) {
+        uint minDeposit = get("minDeposit");
+        uint minDepositInflation = minDeposit.mul(_majorityBlocInflation).div(_tokenSupply);
+        uint newMinDeposit = minDeposit + minDepositInflation;
+        set("minDeposit", newMinDeposit);
+        return minDepositInflation;
     }
 
     // -----------------------
@@ -177,10 +191,12 @@ contract Parameterizer {
         address propOwner = prop.owner;
         uint propDeposit = prop.deposit;
 
-        
+        // - Whenever the minDeposit parameter goes up, the token supply is inflated by the same factor as that increase,
+
         // Before any token transfers, deleting the proposal will ensure that if reentrancy occurs the
         // prop.owner and prop.deposit will be 0, thereby preventing theft
         if (canBeSet(_propID)) {
+        // if (canBeSet(_propID) && keccak256(prop.name) != keccak256("minDeposit")) {
             // There is no challenge against the proposal. The processBy date for the proposal has not
             // passed, but the proposal's appExpirty date has passed.
             set(prop.name, prop.value);
@@ -188,6 +204,7 @@ contract Parameterizer {
             delete proposals[_propID];
             require(token.transfer(propOwner, propDeposit));
         } else if (challengeCanBeResolved(_propID)) {
+        // } else if (challengeCanBeResolved(_propID) && keccak256(prop.name) != keccak256("minDeposit")) {
             // There is a challenge against the proposal.
             resolveChallenge(_propID);
         } else if (now > prop.processBy) {

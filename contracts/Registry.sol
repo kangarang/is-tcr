@@ -43,7 +43,9 @@ contract Registry {
         uint stake;             // Number of tokens at stake for either party during challenge
         uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
-        uint totalSupply;       // Number of tokens in circulation at time zero of challenge
+        uint totalInflationReward;
+        uint inflationFactor;
+        uint totalVotingTokens;
     }
 
     // Maps challengeIDs to associated challenge data
@@ -58,8 +60,7 @@ contract Registry {
     Parameterizer public parameterizer;
     string public name;
 
-    // - The registry explicitly tracks the total number of tokens staked in listings and applications
-    // (and not including tokens staked by challengers).
+    // explicitly track the total number of tokens staked in listings and applications
     uint public totalCandidateStake;
     uint public numCandidates;
 
@@ -130,6 +131,8 @@ contract Registry {
         // increase global candidate stake
         totalCandidateStake += _amount;
 
+        // - Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
+
         emit _Deposit(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
 
@@ -151,6 +154,8 @@ contract Registry {
         // decrease global candidate stake
         totalCandidateStake -= _amount;
 
+        // - Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
+
         emit _Withdrawal(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
 
@@ -167,6 +172,8 @@ contract Registry {
 
         // Cannot exit during ongoing challenge
         require(listing.challengeID == 0 || challenges[listing.challengeID].resolved);
+
+        // - Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
 
         // Remove listingHash & return tokens
         resetListing(_listingHash);
@@ -213,7 +220,9 @@ contract Registry {
             stake: minDeposit,
             resolved: false,
             totalTokens: 0,
-            totalSupply: token.totalSupply()
+            totalInflationReward: 0,
+            inflationFactor: parameterizer.get("inflationFactor"),
+            totalVotingTokens: 0
         });
 
         // Updates listingHash to store most recent challenge
@@ -226,6 +235,8 @@ contract Registry {
         require(token.transferFrom(msg.sender, this, minDeposit));
 
         var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
+
+        // - Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
 
         emit _Challenge(_listingHash, pollID, _data, commitEndDate, revealEndDate, msg.sender);
         return pollID;
@@ -272,6 +283,12 @@ contract Registry {
         // Ensures a voter cannot claim tokens again
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 
+        // uint inflationReward = voterInflationReward(_challengeID, voterTokens);
+        // // subtract the voter's inflation based on the challenge's inflationFactor
+        // challenges[_challengeID].totalInflationReward -= inflationReward;
+
+        // require(token.transfer(msg.sender, reward.add(inflationReward)));
+
         require(token.transfer(msg.sender, reward));
 
         emit _RewardClaimed(_challengeID, reward, msg.sender);
@@ -292,6 +309,13 @@ contract Registry {
     // --------
     // GETTERS:
     // --------
+
+    function voterInflationReward(uint _challengeID, uint _numTokens) public view returns (uint) {
+        uint totalVotingTokens = challenges[_challengeID].totalVotingTokens;
+        uint inflationFactor = challenges[_challengeID].inflationFactor;
+
+        return totalVotingTokens.div(_numTokens).mul(inflationFactor);
+    }
 
     /**
     @dev                Calculates the provided voter's token reward for the given poll.
@@ -431,6 +455,34 @@ contract Registry {
 
             emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
         }
+
+        // // record the initial totalSupply
+        // uint tokenSupply = token.totalSupply();
+        // // - The amount of inflation is determined by the total number of revealed votes relative to the token supply.
+        // var (votesFor, votesAgainst,) = voting.pollMap(challengeID);
+        // // - The actual strength of the inflation function is modulated by a parameter voted by token holders.
+        // uint majorityBlocInflation = tokenSupply.div(votesFor + votesAgainst).mul(challenges[challengeID].inflationFactor);
+
+        // // set the totals
+        // challenges[challengeID].totalInflationReward = majorityBlocInflation;
+        // challenges[challengeID].totalVotingTokens = votesFor + votesAgainst;
+
+        // if (majorityBlocInflation > 0) {
+        //     // - Whenever the supply is inflated in this way, the minDeposit parameter automatically adjusts as well,
+        //     //   by the same factor as the supply was inflated by
+        //     uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
+
+        //     // - Whenever the minDeposit parameter goes up, the token supply is inflated by the same factor as that increase,
+        //     // times the total number of tokens staked in listings and applications.
+        //     if (minDepositInflation > 0) {
+        //         increaseTokenSupply(majorityBlocInflation + minDepositInflation * numCandidates, this);
+        //         // - The registry's token balance and the number explicitly tracking the balance of staked deposits are increased by this amount.
+        //         totalCandidateStake += (minDepositInflation * numCandidates);
+        //     } else {
+        //         increaseTokenSupply(majorityBlocInflation, this);
+        //         // - The new tokens minted following the above process are claimable by token holders who revealed in the majority, by token weight, when they claimReward.
+        //     }
+        // }
     }
 
     /**
