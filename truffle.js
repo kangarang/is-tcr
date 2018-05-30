@@ -5,25 +5,25 @@ const mnemonic = process.env.MNEMONIC;
 module.exports = {
   networks: {
     mainnet: {
-      provider: new HDWalletProvider(mnemonic, 'https://mainnet.infura.io'),
+      provider: () => new HDWalletProvider(mnemonic, 'https://mainnet.infura.io'),
       network_id: '1',
       gas: 4500000,
       gasPrice: 10000000000,
     },
     ganache: {
-      provider: new HDWalletProvider(mnemonic, 'http://localhost:8545'),
+      provider: () => new HDWalletProvider(mnemonic, 'http://localhost:8545'),
       network_id: '*',
-      gas: 6000000,
+      gas: 50000000,
       gasPrice: 25000000000,
     },
     rinkeby: {
-      provider: new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io'),
+      provider: () => new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io'),
       network_id: '*',
       gas: 4500000,
       gasPrice: 25000000000,
     },
     ropsten: {
-      provider: new HDWalletProvider(mnemonic, 'https://ropsten.infura.io'),
+      provider: () => new HDWalletProvider(mnemonic, 'https://ropsten.infura.io'),
       network_id: '*',
       gas: 4500000,
       gasPrice: 25000000000,

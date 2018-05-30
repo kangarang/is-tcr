@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "A generic, string-keyed TCR in Solidity",
   "scripts": {
-    "install": "truffle install",
+    "ethpm:install": "truffle install",
     "compile": "truffle compile",
     "publish": "truffle publish",
     "coverage": "solidity-coverage",

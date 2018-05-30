@@ -226,7 +226,7 @@ contract Registry {
             inflationFactor: parameterizer.get("inflationFactor"),
             totalVotingTokens: 0,
             // tokenSupply: 10000
-            tokenSupply: token.totalSupply()
+            tokenSupply: token.totalSupply().div(1000000000000000000)
         });
 
         // Updates listingHash to store most recent challenge
@@ -292,7 +292,10 @@ contract Registry {
         // subtract the voter's inflation (maybe unnecessary)
         challenges[_challengeID].totalInflationReward -= inflationReward;
 
-        require(token.transfer(msg.sender, reward.add(inflationReward)));
+        emit _EventLog("inflationReward", inflationReward);
+
+        // require(token.transfer(msg.sender, reward.add(inflationReward)));
+        require(token.transfer(msg.sender, reward));
 
         emit _RewardClaimed(_challengeID, reward, msg.sender);
     }
@@ -301,11 +304,27 @@ contract Registry {
     // GETTERS:
     // --------
 
+    // TODO: calculate share based on majority_bloc
     function voterInflationReward(uint _challengeID, uint _numTokens) public view returns (uint) {
         uint totalVotingTokens = challenges[_challengeID].totalVotingTokens;
-        uint inflationFactor = challenges[_challengeID].inflationFactor;
+        emit _EventLog("totalVotingTokens", totalVotingTokens);
 
-        return totalVotingTokens.div(_numTokens).mul(inflationFactor);
+        // percentage of totalVotingTokens
+        // uint voterInflationShare = SafeMath.div(100, totalVotingTokens.div(_numTokens));
+        // uint voterInflationShare = (100).div(totalVotingTokens.div(_numTokens));
+        // 100 / (10 / 2) = 20 (%)
+
+        uint voterInflationShare = (totalVotingTokens.mul((_numTokens.mul(100)))).div(100);
+        // 10 * (2 * 100) = 200 / 100 = 20 (%)
+        emit _EventLog("voterInflationShare", voterInflationShare);
+
+        // (supply / totalVotingTokens) * inflationFactor
+        // uint majorityBlocInflation = challenges[_challengeID].tokenSupply.div(totalVotingTokens).mul(challenges[_challengeID].inflationFactor);
+        uint majorityBlocInflation = challenges[_challengeID].totalInflationReward;
+        emit _EventLog("majorityBlocInflation", majorityBlocInflation);
+
+        return (voterInflationShare.mul(majorityBlocInflation)).div(100);
+        // 20 (%) * 50 / 100 = 1000 / 100 = 10 (tokens)
     }
 
     /**
@@ -431,30 +450,28 @@ contract Registry {
 
         // uint tokenSupply = token.totalSupply().div(1000000000000000000);
         uint tokenSupply = challenges[challengeID].tokenSupply;
-        // - The amount of inflation is determined by the total number of revealed votes relative to the token supply.
         var (,,,votesFor, votesAgainst) = voting.pollMap(challengeID);
-        // - The actual strength of the inflation function is modulated by a parameter voted by token holders.
-        uint majorityBlocInflation = tokenSupply.div(votesFor + votesAgainst + 1000000000000000000).mul(challenges[challengeID].inflationFactor);
+        emit _EventLog("total votes", votesFor.add(votesAgainst));
+
+        uint majorityBlocInflation = 0;
+        if (votesFor + votesAgainst > 0) {
+            majorityBlocInflation = tokenSupply.div(votesFor + votesAgainst).mul(challenges[challengeID].inflationFactor);
+        }
+        // 100 / 10 * 5 = 50
+        emit _EventLog("majorityBlocInflation", majorityBlocInflation);
 
         // set the totals
         challenges[challengeID].totalInflationReward = majorityBlocInflation;
         challenges[challengeID].totalVotingTokens = votesFor + votesAgainst;
-        // emit _EventLog("majorityBlocInflation", majorityBlocInflation);
-        // emit _EventLog("numCandidates", numCandidates);
 
         if (majorityBlocInflation > 0) {
             uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
-            // emit _EventLog("minDepositInflation", minDepositInflation);
-            if (minDepositInflation > 0) {
-                require(token.increaseSupply(majorityBlocInflation + minDepositInflation * numCandidates, this));
-                emit _TokenSupplyIncreased(majorityBlocInflation + minDepositInflation * numCandidates, this);
-                totalCandidateStake += (minDepositInflation * numCandidates);
-                // emit _EventLog("totalCandidateStake", totalCandidateStake);
-                // emit _EventLog("numCandidates", numCandidates);
-            } else {
-                require(token.increaseSupply(majorityBlocInflation, this));
-                emit _TokenSupplyIncreased(majorityBlocInflation, this);
-            }
+            emit _EventLog("minDepositInflation", minDepositInflation);
+            // 5
+            require(token.increaseSupply(majorityBlocInflation + (minDepositInflation * numCandidates), this));
+            // 100 -> 50 + (5 * 1) = 155
+            emit _TokenSupplyIncreased(majorityBlocInflation + (minDepositInflation * numCandidates), this);
+            totalCandidateStake += (minDepositInflation * numCandidates);
         }
 
         // Case: challenge failed
