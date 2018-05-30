@@ -22,6 +22,7 @@ contract('Registry', (accounts) => {
       const { registryProxy, tokenInstance } = await utils.getProxies(accounts[2]);
       registry = registryProxy;
       token = tokenInstance;
+      await utils.as(accounts[2], token.changeSupplyOracle, registry.address);
 
       await utils.approveProxies(accounts, token, false, false, registry);
     });

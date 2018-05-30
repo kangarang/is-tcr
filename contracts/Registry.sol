@@ -23,8 +23,9 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
-    event _TokenSupplyIncreased(uint amount, address indexed to);
-    event _TokenSupplyDecreased(uint amount, address indexed from);
+    event _TokenSupplyIncreased(uint amount, address to);
+    event _TokenSupplyDecreased(uint amount, address from);
+    event _EventLog(string name, uint value);
 
     using SafeMath for uint;
 
@@ -46,6 +47,7 @@ contract Registry {
         uint totalInflationReward;
         uint inflationFactor;
         uint totalVotingTokens;
+        uint tokenSupply;
     }
 
     // Maps challengeIDs to associated challenge data
@@ -222,7 +224,9 @@ contract Registry {
             totalTokens: 0,
             totalInflationReward: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
-            totalVotingTokens: 0
+            totalVotingTokens: 0,
+            // tokenSupply: 10000
+            tokenSupply: token.totalSupply()
         });
 
         // Updates listingHash to store most recent challenge
@@ -291,18 +295,6 @@ contract Registry {
         require(token.transfer(msg.sender, reward.add(inflationReward)));
 
         emit _RewardClaimed(_challengeID, reward, msg.sender);
-    }
-
-    function increaseTokenSupply(uint _incAmount, address _to) internal {
-        require(token.increaseSupply(_incAmount, _to));
-
-        emit _TokenSupplyIncreased(_incAmount, _to);
-    }
-
-    function decreaseTokenSupply(uint _decAmount, address _from) internal {
-        require(token.decreaseSupply(_decAmount, _from));
-
-        emit _TokenSupplyDecreased(_decAmount, _from);
     }
 
     // --------
@@ -435,8 +427,35 @@ contract Registry {
         challenges[challengeID].resolved = true;
 
         // Stores the total tokens used for voting by the winning side for reward purposes
-        challenges[challengeID].totalTokens =
-            voting.getTotalNumberOfTokensForWinningOption(challengeID);
+        challenges[challengeID].totalTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
+
+        // uint tokenSupply = token.totalSupply().div(1000000000000000000);
+        uint tokenSupply = challenges[challengeID].tokenSupply;
+        // - The amount of inflation is determined by the total number of revealed votes relative to the token supply.
+        var (,,,votesFor, votesAgainst) = voting.pollMap(challengeID);
+        // - The actual strength of the inflation function is modulated by a parameter voted by token holders.
+        uint majorityBlocInflation = tokenSupply.div(votesFor + votesAgainst + 1000000000000000000).mul(challenges[challengeID].inflationFactor);
+
+        // set the totals
+        challenges[challengeID].totalInflationReward = majorityBlocInflation;
+        challenges[challengeID].totalVotingTokens = votesFor + votesAgainst;
+        // emit _EventLog("majorityBlocInflation", majorityBlocInflation);
+        // emit _EventLog("numCandidates", numCandidates);
+
+        if (majorityBlocInflation > 0) {
+            uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
+            // emit _EventLog("minDepositInflation", minDepositInflation);
+            if (minDepositInflation > 0) {
+                require(token.increaseSupply(majorityBlocInflation + minDepositInflation * numCandidates, this));
+                emit _TokenSupplyIncreased(majorityBlocInflation + minDepositInflation * numCandidates, this);
+                totalCandidateStake += (minDepositInflation * numCandidates);
+                // emit _EventLog("totalCandidateStake", totalCandidateStake);
+                // emit _EventLog("numCandidates", numCandidates);
+            } else {
+                require(token.increaseSupply(majorityBlocInflation, this));
+                emit _TokenSupplyIncreased(majorityBlocInflation, this);
+            }
+        }
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
@@ -453,34 +472,6 @@ contract Registry {
             require(token.transfer(challenges[challengeID].challenger, reward));
 
             emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
-        }
-
-        // record the initial totalSupply
-        uint tokenSupply = token.totalSupply();
-        // - The amount of inflation is determined by the total number of revealed votes relative to the token supply.
-        var (votesFor, votesAgainst,) = voting.pollMap(challengeID);
-        // - The actual strength of the inflation function is modulated by a parameter voted by token holders.
-        uint majorityBlocInflation = tokenSupply.div(votesFor + votesAgainst).mul(challenges[challengeID].inflationFactor);
-
-        // set the totals
-        challenges[challengeID].totalInflationReward = majorityBlocInflation;
-        challenges[challengeID].totalVotingTokens = votesFor + votesAgainst;
-
-        if (majorityBlocInflation > 0) {
-            // - Whenever the supply is inflated in this way, the minDeposit parameter automatically adjusts as well,
-            //   by the same factor as the supply was inflated by
-            uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
-
-            // - Whenever the minDeposit parameter goes up, the token supply is inflated by the same factor as that increase,
-            // times the total number of tokens staked in listings and applications.
-            if (minDepositInflation > 0) {
-                increaseTokenSupply(majorityBlocInflation + minDepositInflation * numCandidates, this);
-                // - The registry's token balance and the number explicitly tracking the balance of staked deposits are increased by this amount.
-                totalCandidateStake += (minDepositInflation * numCandidates);
-            } else {
-                increaseTokenSupply(majorityBlocInflation, this);
-                // - The new tokens minted following the above process are claimable by token holders who revealed in the majority, by token weight, when they claimReward.
-            }
         }
     }
 

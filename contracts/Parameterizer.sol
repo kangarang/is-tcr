@@ -17,6 +17,7 @@ contract Parameterizer {
     event _ChallengeSucceeded(bytes32 indexed propID, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeFailed(bytes32 indexed propID, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
+    event _MinDepositSet(uint minDeposit);
 
 
     // ------
@@ -102,6 +103,7 @@ contract Parameterizer {
         uint minDepositInflation = minDeposit.mul(_majorityBlocInflation).div(_tokenSupply);
         uint newMinDeposit = minDeposit + minDepositInflation;
         set("minDeposit", newMinDeposit);
+        emit _MinDepositSet(newMinDeposit);
         return minDepositInflation;
     }
 

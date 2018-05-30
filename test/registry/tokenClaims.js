@@ -24,6 +24,7 @@ contract('Registry', (accounts) => {
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
+      await utils.as(accounts[2], token.changeSupplyOracle, registry.address);
 
       await utils.approveProxies(accounts, token, voting, false, registry);
     });
