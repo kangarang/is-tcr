@@ -516,17 +516,15 @@ contract Registry {
         }
 
         // decrease global candidate stake
-        totalCandidateStake -= listing.unstakedDeposit;
+        totalCandidateStake -= parameterizer.get("minDeposit");
         numCandidates -= 1;
 
         // Deleting listing to prevent reentry
         address owner = listing.owner;
-        uint unstakedDeposit = listing.unstakedDeposit;
+        //uint unstakedDeposit = listing.unstakedDeposit;
         delete listings[_listingHash];
         
         // Transfers any remaining balance back to the owner
-        if (unstakedDeposit > 0){
-            require(token.transfer(owner, unstakedDeposit));
-        }
+	require(token.transfer(owner, parameterizer.get("minDeposit")));
     }
 }

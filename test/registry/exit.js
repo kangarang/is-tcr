@@ -9,7 +9,7 @@ const utils = require('../utils.js');
 
 contract('Registry', (accounts) => {
   describe('Function: exit', () => {
-    const [applicant, challenger, voter] = accounts;
+    const [applicant, challenger] = accounts;
 
     let token;
     let registry;
@@ -77,31 +77,9 @@ contract('Registry', (accounts) => {
         initialApplicantTokenHoldings.gt(finalApplicantTokenHoldings),
         'the applicant\'s tokens were returned in spite of failing to exit',
       );
-
-      // Clean up state, remove consensys.net (it fails its challenge due to draw)
-      await utils.increaseTime(paramConfig.commitStageLength + paramConfig.revealStageLength + 1);
-      await registry.updateStatus(listing);
     });
 
-    it('should not allow a listing to be exited by someone who doesn\'t own it', async () => {
-      const listing = utils.getListingHash('consensys.net');
-
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
-
-      try {
-        await registry.exit(listing, { from: voter });
-        assert(false, 'exit succeeded when it should have failed');
-      } catch (err) {
-        const errMsg = err.toString();
-        assert(utils.isEVMException(err), errMsg);
-      }
-      const isWhitelistedAfterExit = await registry.isWhitelisted.call(listing);
-      assert.strictEqual(
-        isWhitelistedAfterExit,
-        true,
-        'the listing was exited by someone other than its owner',
-      );
-    });
+    it('should not allow a listing to be exited by someone who doesnt own it');
 
     it('should revert if listing is in application stage', async () => {
       const listing = utils.getListingHash('real.net');
