@@ -1,0 +1,35 @@
+{
+  "paramDefaults": {
+    "minDeposit": 100000000000000000000,
+    "pMinDeposit": 1000000000000000000000,
+    "applyStageLength": 600,
+    "pApplyStageLength": 1200,
+    "commitStageLength": 600,
+    "pCommitStageLength": 1200,
+    "revealStageLength": 600,
+    "pRevealStageLength": 1200,
+    "dispensationPct": 50,
+    "pDispensationPct": 50,
+    "voteQuorum": 50,
+    "pVoteQuorum": 50
+  },
+  "name": "The Sunset Registry",
+  "token": {
+    "address": "0x337cDDa6D41A327c5ad456166CCB781a9722AFf9",
+    "deployToken": true,
+    "decimals": "18",
+    "name": "SunToken",
+    "symbol": "SUN",
+    "supply": "1000000000000000000000000000",
+    "tokenHolders": [
+      {
+        "address": "0xD09cc3Bc67E4294c4A446d8e4a2934a921410eD7",
+        "amount": "100000000000000000000000000"
+      },
+      {
+        "address": "0x374Bd185Ee19fD9f8682Eb875E5D0546A8D58CdD",
+        "amount": "900000000000000000000000000"
+      }
+    ]
+  }
+}
