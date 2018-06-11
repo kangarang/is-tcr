@@ -31,9 +31,9 @@
     "truffle-hdwallet-provider": "0.0.5"
   },
   "devDependencies": {
-    "eslint": "4.15.0",
+    "eslint": "4.19.1",
     "eslint-config-airbnb-base": "12.1.0",
-    "eslint-plugin-import": "2.8.0",
-    "solidity-coverage": "^0.4.15"
+    "eslint-plugin-import": "2.12.0",
+    "solidity-coverage": "0.5.4"
   }
 }
