@@ -225,7 +225,6 @@ contract Registry {
             totalInflationReward: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
             totalVotingTokens: 0,
-            // tokenSupply: 10000
             tokenSupply: token.totalSupply().div(1000000000000000000)
         });
 
@@ -294,10 +293,11 @@ contract Registry {
 
         emit _EventLog("inflationReward", inflationReward);
 
-        // require(token.transfer(msg.sender, reward.add(inflationReward)));
-        require(token.transfer(msg.sender, reward));
+	
+        require(token.transfer(msg.sender, reward.add(inflationReward)));
+        //require(token.transfer(msg.sender, reward));
 
-        emit _RewardClaimed(_challengeID, reward, msg.sender);
+        //emit _RewardClaimed(_challengeID, reward, msg.sender);
     }
 
     // --------
@@ -311,18 +311,16 @@ contract Registry {
 
         // percentage of totalVotingTokens
         // uint voterInflationShare = SafeMath.div(100, totalVotingTokens.div(_numTokens));
-        // uint voterInflationShare = (100).div(totalVotingTokens.div(_numTokens));
-        // 100 / (10 / 2) = 20 (%)
-
-        uint voterInflationShare = (totalVotingTokens.mul((_numTokens.mul(100)))).div(100);
-        // 10 * (2 * 100) = 200 / 100 = 20 (%)
-        emit _EventLog("voterInflationShare", voterInflationShare);
+        //(100 * (50)) / (500) = 10%
+	uint voterInflationShare =
+	    (100 * (_numTokens)) / (totalVotingTokens);
+	emit _EventLog("voterInflationShare", voterInflationShare);
 
         // (supply / totalVotingTokens) * inflationFactor
         // uint majorityBlocInflation = challenges[_challengeID].tokenSupply.div(totalVotingTokens).mul(challenges[_challengeID].inflationFactor);
         uint majorityBlocInflation = challenges[_challengeID].totalInflationReward;
         emit _EventLog("majorityBlocInflation", majorityBlocInflation);
-
+	//(250,000 * 
         return (voterInflationShare.mul(majorityBlocInflation)).div(100);
         // 20 (%) * 50 / 100 = 1000 / 100 = 10 (tokens)
     }
