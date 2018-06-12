@@ -13,13 +13,10 @@ contract Registry {
 
     event _Application(bytes32 indexed listingHash, uint deposit, uint appEndDate, string data, address indexed applicant);
     event _Challenge(bytes32 indexed listingHash, uint challengeID, string data, uint commitEndDate, uint revealEndDate, address indexed challenger);
-    event _Deposit(bytes32 indexed listingHash, uint added, uint newTotal, address indexed owner);
-    event _Withdrawal(bytes32 indexed listingHash, uint withdrew, uint newTotal, address indexed owner);
     event _ApplicationWhitelisted(bytes32 indexed listingHash);
     event _ApplicationRemoved(bytes32 indexed listingHash);
     event _ListingRemoved(bytes32 indexed listingHash);
     event _ListingWithdrawn(bytes32 indexed listingHash);
-    event _TouchAndRemoved(bytes32 indexed listingHash);
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
@@ -33,7 +30,6 @@ contract Registry {
         uint applicationExpiry; // Expiration date of apply stage
         bool whitelisted;       // Indicates registry status
         address owner;          // Owner of Listing
-        uint unstakedDeposit;   // Number of tokens in the listing not locked in a challenge
         uint challengeID;       // Corresponds to a PollID in PLCRVoting
     }
 
@@ -106,63 +102,14 @@ contract Registry {
 
         // Sets apply stage end time
         listing.applicationExpiry = block.timestamp.add(parameterizer.get("applyStageLen"));
-        listing.unstakedDeposit = _amount;
 
-        // TODO: is this necessary?
-        // increase global candidate stake
-        totalCandidateStake += listings[_listingHash].unstakedDeposit;
+        // increase global numCandidates
         numCandidates += 1;
 
         // Transfers tokens from user to Registry contract
         require(token.transferFrom(listing.owner, this, _amount));
 
         emit _Application(_listingHash, _amount, listing.applicationExpiry, _data, msg.sender);
-    }
-
-    /**
-    @dev                Allows the owner of a listingHash to increase their unstaked deposit.
-    @param _listingHash A listingHash msg.sender is the owner of
-    @param _amount      The number of ERC20 tokens to increase a user's unstaked deposit
-    */
-    function deposit(bytes32 _listingHash, uint _amount) external {
-        Listing storage listing = listings[_listingHash];
-
-        require(listing.owner == msg.sender);
-
-        listing.unstakedDeposit += _amount;
-        require(token.transferFrom(msg.sender, this, _amount));
-
-        // TODO: is this necessary?
-        // increase global candidate stake
-        totalCandidateStake += _amount;
-
-        // - TODO: Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
-
-        emit _Deposit(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
-    }
-
-    /**
-    @dev                Allows the owner of a listingHash to decrease their unstaked deposit.
-    @param _listingHash A listingHash msg.sender is the owner of.
-    @param _amount      The number of ERC20 tokens to withdraw from the unstaked deposit.
-    */
-    function withdraw(bytes32 _listingHash, uint _amount) external {
-        Listing storage listing = listings[_listingHash];
-
-        require(listing.owner == msg.sender);
-        require(_amount <= listing.unstakedDeposit);
-        require(listing.unstakedDeposit - _amount >= parameterizer.get("minDeposit"));
-
-        listing.unstakedDeposit -= _amount;
-        require(token.transfer(msg.sender, _amount));
-
-        // TODO: is this necessary?
-        // decrease global candidate stake
-        totalCandidateStake -= _amount;
-
-        // - TODO: Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
-
-        emit _Withdrawal(_listingHash, _amount, listing.unstakedDeposit, msg.sender);
     }
 
     /**
@@ -173,16 +120,17 @@ contract Registry {
     function exit(bytes32 _listingHash) external {
         Listing storage listing = listings[_listingHash];
 
-        require(msg.sender == listing.owner);
+        address owner = listing.owner;
+        require(msg.sender == owner);
         require(isWhitelisted(_listingHash));
 
         // Cannot exit during ongoing challenge
         require(listing.challengeID == 0 || challenges[listing.challengeID].resolved);
 
-        // - TODO: Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
-
         // Remove listingHash & return tokens
         resetListing(_listingHash);
+        // Transfers any remaining balance back to the owner
+        require(token.transfer(owner, parameterizer.get("minDeposit")));
         emit _ListingWithdrawn(_listingHash);
     }
 
@@ -205,13 +153,6 @@ contract Registry {
         require(appWasMade(_listingHash) || listing.whitelisted);
         // Prevent multiple challenges
         require(listing.challengeID == 0 || challenges[listing.challengeID].resolved);
-
-        if (listing.unstakedDeposit < minDeposit) {
-            // Not enough tokens, listingHash auto-delisted
-            resetListing(_listingHash);
-            emit _TouchAndRemoved(_listingHash);
-            return 0;
-        }
 
         // Starts poll
         uint pollID = voting.startPoll(
@@ -236,7 +177,7 @@ contract Registry {
         listing.challengeID = pollID;
 
         // Locks tokens for listingHash during challenge
-        listing.unstakedDeposit -= minDeposit;
+        // TODO: prevent candidate from exiting
 
         // Takes tokens from challenger
         require(token.transferFrom(msg.sender, this, minDeposit));
@@ -467,8 +408,8 @@ contract Registry {
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
             whitelistApplication(_listingHash);
+            // TODO..
             // Unlock stake so that it can be retrieved by the applicant
-            listings[_listingHash].unstakedDeposit += reward;
 
             emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
         }
@@ -477,7 +418,6 @@ contract Registry {
             resetListing(_listingHash);
             // Transfer the reward to the challenger
             require(token.transfer(challenges[challengeID].challenger, reward));
-
             emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
         }
     }
@@ -508,15 +448,11 @@ contract Registry {
         }
 
         // decrease global candidate stake
+        // TODO: is this necessary?
         totalCandidateStake -= parameterizer.get("minDeposit");
         numCandidates -= 1;
 
-        // Deleting listing to prevent reentry
-        address owner = listing.owner;
-        //uint unstakedDeposit = listing.unstakedDeposit;
+        // Delete listing to prevent reentry
         delete listings[_listingHash];
-        
-        // Transfers any remaining balance back to the owner
-        require(token.transfer(owner, parameterizer.get("minDeposit")));
     }
 }

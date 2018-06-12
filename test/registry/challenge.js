@@ -8,7 +8,7 @@ const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-const bigTen = number => new BN(number.toString(10), 10);
+// const bigTen = number => new BN(number.toString(10), 10);
 
 contract('Registry', (accounts) => {
   describe('Function: challenge', () => {
@@ -96,15 +96,6 @@ contract('Registry', (accounts) => {
         isWhitelisted, true,
         'An application which should have succeeded failed',
       );
-
-      const unstakedDeposit = await utils.getUnstakedDeposit(listing, registry);
-      const expectedUnstakedDeposit =
-        minDeposit.add(minDeposit.mul(bigTen(paramConfig.dispensationPct).div(bigTen(100))));
-
-      assert.strictEqual(
-        unstakedDeposit.toString(10), expectedUnstakedDeposit.toString(10),
-        'The challenge winner was not properly disbursed their tokens',
-      );
     });
 
     it('should unsuccessfully challenge a listing', async () => {
@@ -122,44 +113,6 @@ contract('Registry', (accounts) => {
       const isWhitelisted = await registry.isWhitelisted.call(listing);
       assert.strictEqual(isWhitelisted, true, 'An application which should have succeeded failed');
     });
-
-    // it('should touch-and-remove a listing with a depost below the current minimum', async () => {
-    //   const listing = utils.getListingHash('touchandremove.net');
-    //   const minDeposit = new BN(paramConfig.minDeposit, 10);
-    //   const newMinDeposit = minDeposit.add(new BN('1', 10));
-
-    //   const applicantStartingBal = await token.balanceOf.call(applicant);
-
-    //   await utils.addToWhitelist(listing, minDeposit, applicant, registry);
-
-    //   const receipt = await utils.as(
-    //     proposer, parameterizer.proposeReparameterization,
-    //     'minDeposit', newMinDeposit,
-    //   );
-    //   const propID = utils.getReceiptValue(receipt, 'propID');
-
-    //   await utils.increaseTime(paramConfig.pApplyStageLength + 1);
-
-    //   await parameterizer.processProposal(propID);
-
-    //   const challengerStartingBal = await token.balanceOf.call(challenger);
-    //   utils.as(challenger, registry.challenge, listing, '');
-    //   const challengerFinalBal = await token.balanceOf.call(challenger);
-
-    //   assert(
-    //     challengerStartingBal.eq(challengerFinalBal),
-    //     'Tokens were not returned to challenger',
-    //   );
-
-    //   const applicantFinalBal = await token.balanceOf.call(applicant);
-
-    //   assert(
-    //     applicantStartingBal.eq(applicantFinalBal),
-    //     'Tokens were not returned to applicant',
-    //   );
-
-    //   assert(!await registry.isWhitelisted.call(listing), 'Listing was not removed');
-    // });
 
     it('should not be able to challenge a listing hash that doesn\'t exist', async () => {
       const listing = utils.getListingHash('doesNotExist.net');

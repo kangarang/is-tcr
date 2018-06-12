@@ -162,14 +162,6 @@ const utils = {
     .then(num => ethQuery.getBlockByNumber(num, true))
     .then(block => block.timestamp.toString(10)),
 
-  getUnstakedDeposit: async (domain, registry) => {
-    // get the struct in the mapping
-    const listing = await registry.listings.call(domain);
-    // get the unstaked deposit amount from the listing struct
-    const unstakedDeposit = await listing[3];
-    return unstakedDeposit.toString();
-  },
-
   challengeAndGetPollID: async (domain, actor, registry) => {
     const receipt = await utils.as(actor, registry.challenge, domain, '');
     return receipt.logs[0].args.challengeID;

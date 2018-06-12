@@ -35,11 +35,6 @@ contract('Registry', (accounts) => {
       assert.strictEqual(result[0].gt(0), true, 'challenge time < now');
       assert.strictEqual(result[1], false, 'whitelisted != false');
       assert.strictEqual(result[2], applicant, 'owner of application != address that applied');
-      assert.strictEqual(
-        result[3].toString(10),
-        paramConfig.minDeposit.toString(10),
-        'incorrect unstakedDeposit',
-      );
     });
 
     it('should not allow a listing to apply which has a pending application', async () => {
