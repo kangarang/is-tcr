@@ -100,8 +100,11 @@ contract Parameterizer {
 
     function setMinDeposit(uint _majorityBlocInflation, uint _tokenSupply) public onlySupplyOracle returns (uint) {
         uint minDeposit = get("minDeposit");
+
+        // (minDeposit * majorityBlocInflation) / totalSupply
         uint minDepositInflation = minDeposit.mul(_majorityBlocInflation).div(_tokenSupply);
         uint newMinDeposit = minDeposit + minDepositInflation;
+
         set("minDeposit", newMinDeposit);
         emit _MinDepositSet(newMinDeposit);
         return minDepositInflation;
