@@ -34,10 +34,9 @@ contract Registry {
     }
 
     struct Challenge {
-        uint rewardPool;        // (remaining) Pool of tokens to be distributed to winning voters
+        uint rewardPool;        // (remaining) Pool of tokens to be distributed to winning voters (applicant/challenger -> voters)
         address challenger;     // Owner of Challenge
         bool resolved;          // Indication of if challenge is resolved
-        uint stake;             // Number of tokens at stake for either party during challenge
         uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
         uint majorityBlocInflation;
@@ -163,8 +162,7 @@ contract Registry {
 
         challenges[pollID] = Challenge({
             challenger: msg.sender,
-            rewardPool: ((100 - parameterizer.get("dispensationPct")) * minDeposit) / 100,
-            stake: minDeposit,
+            rewardPool: ((100 - parameterizer.get("dispensationPct")) * minDeposit) / 100, // 40 * 10 / 100 of minDeposit goes to voters -> 4
             resolved: false,
             totalTokens: 0,
             majorityBlocInflation: 0,
@@ -173,18 +171,15 @@ contract Registry {
             tokenSupply: token.totalSupply().div(1000000000000000000)
         });
 
-        // Updates listingHash to store most recent challenge
+        // prevent candidate from exiting
         listing.challengeID = pollID;
 
         // Locks tokens for listingHash during challenge
-        // TODO: prevent candidate from exiting
 
         // Takes tokens from challenger
         require(token.transferFrom(msg.sender, this, minDeposit));
 
         var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
-
-        // - TODO: Whenever a listing is touched (challenged, exited, deposit withdrawn), its balance is always the total number of tokens staked in listings and applications, divided by the number of listings and applications.
 
         emit _Challenge(_listingHash, pollID, _data, commitEndDate, revealEndDate, msg.sender);
         return pollID;
@@ -221,7 +216,10 @@ contract Registry {
         require(challenges[_challengeID].resolved == true);
 
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
-        uint reward = voterReward(msg.sender, _challengeID, _salt);
+        // more efficient since we already have voterTokens?
+        // -> portion of the faceoff winnings that goes to the voter
+        uint reward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalTokens);
+        // uint reward = voterReward(msg.sender, _challengeID, _salt);
 
         // Subtracts the voter's information to preserve the participation ratios
         // of other voters compared to the remaining pool of rewards
@@ -338,10 +336,11 @@ contract Registry {
 
         // Edge case, nobody voted, give all tokens to the challenger.
         if (voting.getTotalNumberOfTokensForWinningOption(_challengeID) == 0) {
-            return 2 * challenges[_challengeID].stake;
+            return 2 * parameterizer.get("minDeposit");
         }
 
-        return (2 * challenges[_challengeID].stake) - challenges[_challengeID].rewardPool;
+        // TODO: rewardPool decreases as users claimReward
+        return (2 * parameterizer.get("minDeposit")) - challenges[_challengeID].rewardPool;
     }
 
     /**

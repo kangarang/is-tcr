@@ -120,95 +120,99 @@ contract('Registry', (accounts) => {
       }
     });
 
-    // it('should not transfer tokens if msg.sender has already claimed tokens for a challenge', async () => {
-    //   const listing = utils.getListingHash('sugar.net');
+    it('should not transfer tokens if msg.sender has already claimed tokens for a challenge', async () => {
+      const listing = utils.getListingHash('sugar.net');
 
-    //   const applicantStartingBalance = await token.balanceOf.call(applicant);
-    //   const aliceStartingBalance = await token.balanceOf.call(voterAlice);
+      const applicantStartingBalance = await token.balanceOf.call(applicant);
+      const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
-    //   await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
 
-    //   // Challenge
-    //   const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
+      // Challenge
+      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 
-    //   // Alice is so committed
-    //   await utils.commitVote(pollID, '0', 500, '420', voterAlice, voting);
-    //   await utils.increaseTime(paramConfig.commitStageLength + 1);
+      // Alice is so committed
+      await utils.commitVote(pollID, '0', 500, '420', voterAlice, voting);
+      await utils.increaseTime(paramConfig.commitStageLength + 1);
 
-    //   // Alice is so revealing
-    //   await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
-    //   await utils.increaseTime(paramConfig.revealStageLength + 1);
+      // Alice is so revealing
+      await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
+      await utils.increaseTime(paramConfig.revealStageLength + 1);
 
-    //   // Update status
-    //   await utils.as(applicant, registry.updateStatus, listing);
+      // Update status
+      await utils.as(applicant, registry.updateStatus, listing);
 
-    //   // Claim reward
-    //   await utils.as(voterAlice, registry.claimReward, pollID, '420');
+      // Claim reward
+      await utils.as(voterAlice, registry.claimReward, pollID, '420');
 
-    //   try {
-    //     await utils.as(voterAlice, registry.claimReward, pollID, '420');
-    //     assert(false, 'should not have been able to call claimReward twice');
-    //   } catch (err) {
-    //     assert(utils.isEVMException(err), err.toString());
-    //   }
+      try {
+        await utils.as(voterAlice, registry.claimReward, pollID, '420');
+        assert(false, 'should not have been able to call claimReward twice');
+      } catch (err) {
+        assert(utils.isEVMException(err), err.toString());
+      }
 
-    //   const applicantEndingBalance = await token.balanceOf.call(applicant);
-    //   const appExpected = applicantStartingBalance.sub(minDeposit);
+      const applicantEndingBalance = await token.balanceOf.call(applicant);
+      const appExpected = applicantStartingBalance.sub(minDeposit);
 
-    //   const aliceEndingBalance = await token.balanceOf.call(voterAlice);
-    //   const aliceExpected = aliceStartingBalance.add(minDeposit.div(bigTen(2))).sub(bigTen(500));
+      assert.strictEqual(
+        applicantEndingBalance.toString(10), appExpected.toString(10),
+        'applicants ending balance is incorrect',
+      );
 
-    //   assert.strictEqual(
-    //     applicantEndingBalance.toString(10), appExpected.toString(10),
-    //     'applicants ending balance is incorrect',
-    //   );
-    //   assert.strictEqual(
-    //     aliceEndingBalance.toString(10), aliceExpected.toString(10),
-    //     'alices ending balance is incorrect',
-    //   );
-    // });
+      const aliceInflationReward = await registry.voterInflationReward.call(pollID, 500);
 
-    // it('should not transfer tokens for an unresolved challenge', async () => {
-    //   const listing = utils.getListingHash('unresolved.net');
+      const aliceEndingBalance = await token.balanceOf.call(voterAlice);
+      const aliceExpected = aliceStartingBalance.add(minDeposit.div(bigTen(2))).sub(bigTen(500))
+        .add(aliceInflationReward);
 
-    //   const applicantStartingBalance = await token.balanceOf.call(applicant);
-    //   const aliceStartingBalance = await token.balanceOf.call(voterAlice);
+      assert.strictEqual(
+        aliceEndingBalance.toString(10), aliceExpected.toString(10),
+        'alices ending balance is incorrect',
+      );
+    });
 
-    //   await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+    it('should not transfer tokens for an unresolved challenge', async () => {
+      const listing = utils.getListingHash('unresolved.net');
 
-    //   // Challenge
-    //   const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
+      const applicantStartingBalance = await token.balanceOf.call(applicant);
+      const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
-    //   // Alice is so committed
-    //   await utils.commitVote(pollID, '0', 500, '420', voterAlice, voting);
-    //   await utils.increaseTime(paramConfig.commitStageLength + 1);
+      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
 
-    //   // Alice is so revealing
-    //   await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
-    //   await utils.increaseTime(paramConfig.revealStageLength + 1);
+      // Challenge
+      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 
-    //   try {
-    //     await utils.as(voterAlice, registry.claimReward, pollID, '420');
-    //     assert(false, 'should not have been able to claimReward for unresolved challenge');
-    //   } catch (err) {
-    //     assert(utils.isEVMException(err), err.toString());
-    //   }
+      // Alice is so committed
+      await utils.commitVote(pollID, '0', 500, '420', voterAlice, voting);
+      await utils.increaseTime(paramConfig.commitStageLength + 1);
 
-    //   const applicantEndingBalance = await token.balanceOf.call(applicant);
-    //   const appExpected = applicantStartingBalance.sub(minDeposit);
+      // Alice is so revealing
+      await utils.as(voterAlice, voting.revealVote, pollID, '0', '420');
+      await utils.increaseTime(paramConfig.revealStageLength + 1);
 
-    //   const aliceEndingBalance = await token.balanceOf.call(voterAlice);
-    //   const aliceExpected = aliceStartingBalance.sub(bigTen(500));
+      try {
+        await utils.as(voterAlice, registry.claimReward, pollID, '420');
+        assert(false, 'should not have been able to claimReward for unresolved challenge');
+      } catch (err) {
+        assert(utils.isEVMException(err), err.toString());
+      }
 
-    //   assert.strictEqual(
-    //     applicantEndingBalance.toString(10), appExpected.toString(10),
-    //     'applicants ending balance is incorrect',
-    //   );
-    //   assert.strictEqual(
-    //     aliceEndingBalance.toString(10), aliceExpected.toString(10),
-    //     'alices ending balance is incorrect',
-    //   );
-    // });
+      const applicantEndingBalance = await token.balanceOf.call(applicant);
+      const appExpected = applicantStartingBalance.sub(minDeposit);
+
+      const aliceEndingBalance = await token.balanceOf.call(voterAlice);
+      const aliceExpected = aliceStartingBalance.sub(bigTen(500));
+
+      assert.strictEqual(
+        applicantEndingBalance.toString(10), appExpected.toString(10),
+        'applicants ending balance is incorrect',
+      );
+      assert.strictEqual(
+        aliceEndingBalance.toString(10), aliceExpected.toString(10),
+        'alices ending balance is incorrect',
+      );
+    });
   });
 });
 

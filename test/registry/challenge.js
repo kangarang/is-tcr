@@ -8,8 +8,6 @@ const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-// const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Registry', (accounts) => {
   describe('Function: challenge', () => {
     const [applicant, challenger, voter] = accounts;
