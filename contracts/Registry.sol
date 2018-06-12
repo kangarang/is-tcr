@@ -21,8 +21,7 @@ contract Registry {
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _TokenSupplyIncreased(uint amount, address to);
-    event _TokenSupplyDecreased(uint amount, address from);
-    event _EventLog(string name, uint value);
+    event DEBUG(string name, uint value);
 
     using SafeMath for uint;
 
@@ -41,7 +40,6 @@ contract Registry {
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
         uint majorityBlocInflation;
         uint inflationFactor;
-        uint totalWinningTokens;
         uint tokenSupply;
     }
 
@@ -57,10 +55,7 @@ contract Registry {
     Parameterizer public parameterizer;
     string public name;
 
-    // TODO: is this necessary?
-    // explicitly track the total number of tokens staked in listings and applications
-    uint public totalCandidateStake;
-    uint public numCandidates;
+    uint public totalNumCandidates;
 
     /**
     @dev Initializer. Can only be called once.
@@ -75,8 +70,7 @@ contract Registry {
         voting = PLCRVoting(_voting);
         parameterizer = Parameterizer(_parameterizer);
         name = _name;
-        totalCandidateStake = 0;
-        numCandidates = 0;
+        totalNumCandidates = 0;
     }
 
     // --------------------
@@ -102,8 +96,8 @@ contract Registry {
         // Sets apply stage end time
         listing.applicationExpiry = block.timestamp.add(parameterizer.get("applyStageLen"));
 
-        // increase global numCandidates
-        numCandidates += 1;
+        // increase global totalNumCandidates
+        totalNumCandidates += 1;
 
         // Transfers tokens from user to Registry contract
         require(token.transferFrom(listing.owner, this, _amount));
@@ -162,25 +156,21 @@ contract Registry {
 
         challenges[pollID] = Challenge({
             challenger: msg.sender,
-            rewardPool: ((100 - parameterizer.get("dispensationPct")) * minDeposit) / 100, // 40 * 10 / 100 of minDeposit goes to voters -> 4
+            rewardPool: ((100 - parameterizer.get("dispensationPct")) * minDeposit) / 100,
             resolved: false,
             totalTokens: 0,
             majorityBlocInflation: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
-            totalWinningTokens: 0,
             tokenSupply: token.totalSupply().div(1000000000000000000)
         });
 
-        // prevent candidate from exiting
+        // set the challengeID, prevent candidate from exiting
         listing.challengeID = pollID;
 
-        // Locks tokens for listingHash during challenge
-
-        // Takes tokens from challenger
+        // Take tokens from challenger
         require(token.transferFrom(msg.sender, this, minDeposit));
 
         var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
-
         emit _Challenge(_listingHash, pollID, _data, commitEndDate, revealEndDate, msg.sender);
         return pollID;
     }
@@ -216,21 +206,16 @@ contract Registry {
         require(challenges[_challengeID].resolved == true);
 
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
+
         // more efficient since we already have voterTokens?
-        // -> portion of the faceoff winnings that goes to the voter
         uint reward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalTokens);
         // uint reward = voterReward(msg.sender, _challengeID, _salt);
-
-        // Subtracts the voter's information to preserve the participation ratios
-        // of other voters compared to the remaining pool of rewards
-        challenges[_challengeID].totalTokens -= voterTokens;
-        challenges[_challengeID].rewardPool -= reward;
+        // -> portion of the faceoff winnings that goes to the voter
 
         // Ensures a voter cannot claim tokens again
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 
         uint inflationReward = voterInflationReward(_challengeID, voterTokens);
-        emit _EventLog("inflationReward", inflationReward);
 	
         require(token.transfer(msg.sender, reward.add(inflationReward)));
 
@@ -242,10 +227,9 @@ contract Registry {
     // --------
 
     function voterInflationReward(uint _challengeID, uint _numTokens) public view returns (uint) {
-        // (100 * numTokens) / totalWinningTokens -> percentage of majority_bloc_voter_reward
+        // (100 * numTokens) / totalTokens -> percentage of totalWinningTokens
         // (100 * 50) / 500 = 10%
-        uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalWinningTokens);
-        emit _EventLog("voterInflationShare", voterInflationShare);
+        uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalTokens);
 
         // (voterInflationShare * majorityBlocInflation) / 100 -> token amount
         // 20 * 50 / 100 = 10 (tokens)
@@ -339,7 +323,6 @@ contract Registry {
             return 2 * parameterizer.get("minDeposit");
         }
 
-        // TODO: rewardPool decreases as users claimReward
         return (2 * parameterizer.get("minDeposit")) - challenges[_challengeID].rewardPool;
     }
 
@@ -371,14 +354,10 @@ contract Registry {
         // Sets flag on challenge being processed
         challenges[challengeID].resolved = true;
 
-        // Stores the total tokens used for voting by the winning side for reward purposes
-        challenges[challengeID].totalTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
-        // TODO: semantic improvements
         uint totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
-
+        // Stores the total tokens used for voting by the winning side for reward purposes
+        challenges[challengeID].totalTokens = totalWinningTokens;
         uint tokenSupply = challenges[challengeID].tokenSupply;
-        var (,,,votesFor, votesAgainst) = voting.pollMap(challengeID);
-        emit _EventLog("total votes", votesFor.add(votesAgainst));
 
         uint majorityBlocInflation = 0;
         // TODO: is this necessary?
@@ -387,10 +366,8 @@ contract Registry {
             majorityBlocInflation = tokenSupply.div(totalWinningTokens).mul(challenges[challengeID].inflationFactor);
         }
         // 100 / 10 * 5 = 50
-        emit _EventLog("majorityBlocInflation", majorityBlocInflation);
-
+        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
-        challenges[challengeID].totalWinningTokens = totalWinningTokens;
 
         // TODO: is this necessary?
         if (majorityBlocInflation > 0) {
@@ -398,26 +375,21 @@ contract Registry {
             uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
             // inflate token supply
             // 100 -> 50 + (5 * 1) = 155
-            require(token.increaseSupply(majorityBlocInflation + (minDepositInflation * numCandidates), this));
-            emit _TokenSupplyIncreased(majorityBlocInflation + (minDepositInflation * numCandidates), this);
-            // TODO: is this necessary?
-            totalCandidateStake += (minDepositInflation * numCandidates);
+            require(token.increaseSupply(majorityBlocInflation + (minDepositInflation * totalNumCandidates), this));
+            emit _TokenSupplyIncreased(majorityBlocInflation + (minDepositInflation * totalNumCandidates), this);
         }
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
             whitelistApplication(_listingHash);
-            // TODO..
-            // Unlock stake so that it can be retrieved by the applicant
-
-            emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
+            emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
         }
         // Case: challenge succeeded or nobody voted
         else {
             resetListing(_listingHash);
             // Transfer the reward to the challenger
             require(token.transfer(challenges[challengeID].challenger, reward));
-            emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, challenges[challengeID].totalTokens);
+            emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
         }
     }
 
@@ -446,10 +418,7 @@ contract Registry {
             emit _ApplicationRemoved(_listingHash);
         }
 
-        // decrease global candidate stake
-        // TODO: is this necessary?
-        totalCandidateStake -= parameterizer.get("minDeposit");
-        numCandidates -= 1;
+        totalNumCandidates -= 1;
 
         // Delete listing to prevent reentry
         delete listings[_listingHash];

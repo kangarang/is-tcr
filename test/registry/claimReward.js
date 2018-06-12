@@ -53,7 +53,6 @@ contract('Registry', (accounts) => {
       const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
       const aliceInflationReward = await registry.voterInflationReward(pollID, 500);
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
-      console.log('passed claim reward');
       // Alice withdraws her voting rights
       await utils.as(voterAlice, voting.withdrawVotingRights, '500');
 
