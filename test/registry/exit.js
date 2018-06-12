@@ -9,7 +9,7 @@ const utils = require('../utils.js');
 
 contract('Registry', (accounts) => {
   describe('Function: exit', () => {
-    const [applicant, challenger] = accounts;
+    const [applicant, challenger, kareem] = accounts;
 
     let token;
     let registry;
@@ -79,7 +79,37 @@ contract('Registry', (accounts) => {
       );
     });
 
-    it('should not allow a listing to be exited by someone who doesnt own it');
+    it('should not allow a listing to be exited by someone who doesnt own it', async () => {
+      const listing = utils.getListingHash('consensys.io');
+
+      const initialApplicantTokenHoldings = await token.balanceOf.call(applicant);
+
+      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
+
+      const isWhitelisted = await registry.isWhitelisted.call(listing);
+      assert.strictEqual(isWhitelisted, true, 'the listing was not added to the registry');
+
+      try {
+        await registry.exit(listing, { from: kareem });
+        assert(false, 'exit succeeded when it should have failed');
+      } catch (err) {
+        const errMsg = err.toString();
+        assert(utils.isEVMException(err), errMsg);
+      }
+
+      const isWhitelistedAfterExit = await registry.isWhitelisted.call(listing);
+      assert.strictEqual(
+        isWhitelistedAfterExit,
+        true,
+        'the listing was able to exit while a challenge was active',
+      );
+
+      const finalApplicantTokenHoldings = await token.balanceOf.call(applicant);
+      assert(
+        initialApplicantTokenHoldings.gt(finalApplicantTokenHoldings),
+        'the applicant\'s tokens were returned in spite of failing to exit',
+      );
+    });
 
     it('should revert if listing is in application stage', async () => {
       const listing = utils.getListingHash('real.net');
