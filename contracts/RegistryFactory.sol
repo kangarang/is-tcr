@@ -66,12 +66,12 @@ contract RegistryFactory {
         EIP621OraclizedToken token = EIP621OraclizedToken(parameterizer.token());
         // transfer tokens -> creator
         require(token.transfer(msg.sender, _supply));
-        // change supply oracle -> Registry proxy
-        require(token.changeSupplyOracle(registry));
 
         // Create & initialize a new Registry proxy contract
         Registry registry = Registry(proxyFactory.createProxy(canonizedRegistry, ""));
         registry.init(token, plcr, parameterizer, _registryName);
+        // change supply oracle -> Registry proxy
+        require(token.changeSupplyOracle(registry));
 
         emit NewRegistry(msg.sender, token, plcr, parameterizer, registry);
         return registry;

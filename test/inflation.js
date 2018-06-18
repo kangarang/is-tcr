@@ -44,7 +44,7 @@ contract('Inflation', (accounts) => {
         assert.strictEqual(newBalance.toString(), initBalance.toString(), 'new balance is incorrect');
         return;
       }
-      assert(false, 'previous oracle was able to increase the supply after changing the supplyOracle');
+      assert(false, 'EOA was able to increase the supply');
     });
 
     it('should revert when trying to decrease the supply as an EOA', async () => {
