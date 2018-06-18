@@ -19,7 +19,7 @@ contract('Registry', (accounts) => {
     let registry;
 
     before(async () => {
-      const { registryProxy, tokenInstance } = await utils.getProxies(accounts[2]);
+      const { registryProxy, tokenInstance } = await utils.getProxies();
       registry = registryProxy;
       token = tokenInstance;
 

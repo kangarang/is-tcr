@@ -3,41 +3,29 @@
 const utils = require('./utils.js');
 
 contract('Inflation', (accounts) => {
-  const defaultTo = accounts[1];
-  const oracle = accounts[2];
-
   describe('As the oracle', () => {
+    const [defaultFrom, defaultTo] = accounts;
     let registry;
     let token;
 
     // new token, new registry each iteration
     beforeEach(async () => {
-      const { registryProxy, tokenInstance } = await utils.getProxies(accounts[2]);
+      const { registryProxy, tokenInstance } = await utils.getProxies();
       registry = registryProxy;
       token = tokenInstance;
 
       await utils.approveProxies(accounts, token, false, false, registry);
     });
 
-
-    it('should change the supply oracle to the registry', async () => {
-      // change the supplyOracle
-      await utils.as(oracle, token.changeSupplyOracle, registry.address);
-      // verify: supplyOracle === registry
-      const newOracle = await token.supplyOracle.call();
-      assert.strictEqual(newOracle, registry.address, 'oracle was not changed to registry correctly');
+    it('should print the correct supply oracle (registry)', async () => {
+      const oracle = await token.supplyOracle.call();
+      assert.strictEqual(oracle, registry.address, 'oracle was not instantiated as registry correctly');
     });
 
-    it('should change the supply oracle to the registry, then revert when trying to increase the supply as an EOA', async () => {
+    it('should revert when trying to increase the supply as an EOA', async () => {
       // verify: correct oracle
       const actualOracle = await token.supplyOracle.call();
-      assert.strictEqual(actualOracle, oracle, 'incorrect oracle');
-
-      // change the supplyOracle
-      await utils.as(oracle, token.changeSupplyOracle, registry.address);
-      // verify: supplyOracle === registry
-      const newOracle = await token.supplyOracle.call();
-      assert.strictEqual(newOracle, registry.address, 'oracle was not changed to registry correctly');
+      assert.strictEqual(actualOracle, registry.address, 'incorrect oracle');
 
       // initial supply / balance
       const initSupply = await token.totalSupply.call();
@@ -45,7 +33,7 @@ contract('Inflation', (accounts) => {
 
       const increaseAmount = 10;
       try {
-        await utils.as(oracle, token.increaseSupply, increaseAmount, defaultTo);
+        await utils.as(defaultFrom, token.increaseSupply, increaseAmount, defaultTo);
       } catch (err) {
         assert(utils.isEVMException(err), err.toString());
         // new supply / balance
@@ -59,16 +47,10 @@ contract('Inflation', (accounts) => {
       assert(false, 'previous oracle was able to increase the supply after changing the supplyOracle');
     });
 
-    it('should change the supply oracle to the registry, then revert when trying to decrease the supply as an EOA', async () => {
+    it('should revert when trying to decrease the supply as an EOA', async () => {
       // verify: correct oracle
       const actualOracle = await token.supplyOracle.call();
-      assert.strictEqual(actualOracle, oracle, 'incorrect oracle');
-
-      // change the supplyOracle
-      await utils.as(oracle, token.changeSupplyOracle, registry.address);
-      // verify: supplyOracle === registry
-      const newOracle = await token.supplyOracle.call();
-      assert.strictEqual(newOracle, registry.address, 'oracle was not changed to registry correctly');
+      assert.strictEqual(actualOracle, registry.address, 'incorrect oracle');
 
       // initial supply / balance
       const initSupply = await token.totalSupply.call();
@@ -77,7 +59,7 @@ contract('Inflation', (accounts) => {
       // deflate the supply
       const decAmount = '10';
       try {
-        await utils.as(oracle, token.decreaseSupply, decAmount, defaultTo);
+        await utils.as(defaultFrom, token.decreaseSupply, decAmount, defaultTo);
       } catch (err) {
         assert(utils.isEVMException(err), err.toString());
         // new supply / balance

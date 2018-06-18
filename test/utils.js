@@ -10,13 +10,10 @@ const fs = require('fs');
 const ethRPC = new EthRPC(new HttpProvider('http://localhost:7545'));
 const ethQuery = new Eth(new HttpProvider('http://localhost:7545'));
 
-const Token = artifacts.require('tokens/eip621/EIP621OraclizedToken.sol');
-const PLCRFactory = artifacts.require('plcr-revival/PLCRFactory.sol');
-const PLCRVoting = artifacts.require('plcr-revival/PLCRVoting.sol');
-
-const ParameterizerFactory = artifacts.require('ParameterizerFactory.sol');
 const RegistryFactory = artifacts.require('RegistryFactory.sol');
 
+const Token = artifacts.require('tokens/eip621/EIP621OraclizedToken.sol');
+const PLCRVoting = artifacts.require('plcr-revival/PLCRVoting.sol');
 const Parameterizer = artifacts.require('Parameterizer.sol');
 const Registry = artifacts.require('Registry.sol');
 
@@ -26,22 +23,13 @@ const paramConfig = config.paramDefaults;
 const BN = small => new Eth.BN(small.toString(10), 10);
 
 const utils = {
-  getProxies: async (supplyOracle) => {
-    const plcrFactory = await PLCRFactory.deployed();
-    const plcrReceipt = await plcrFactory.newPLCRWithToken(
+  getProxies: async () => {
+    const registryFactory = await RegistryFactory.deployed();
+    const registryReceipt = await registryFactory.newRegistryWithToken(
       config.token.supply,
       config.token.name,
       config.token.decimals,
       config.token.symbol,
-      supplyOracle,
-    );
-    const plcr = PLCRVoting.at(plcrReceipt.logs[0].args.plcr);
-    const token = Token.at(plcrReceipt.logs[0].args.token);
-
-    const parameterizerFactory = await ParameterizerFactory.deployed();
-    const parameterizerReceipt = await parameterizerFactory.newParameterizerBYOTokenAndPLCR(
-      token.address,
-      plcr.address,
       [
         paramConfig.minDeposit,
         paramConfig.pMinDeposit,
@@ -57,22 +45,26 @@ const utils = {
         paramConfig.pVoteQuorum,
         paramConfig.inflationFactor,
       ],
-    );
-    const parameterizer = Parameterizer.at(parameterizerReceipt.logs[0].args.parameterizer);
-
-    const registryFactory = await RegistryFactory.deployed();
-    const registryReceipt = await registryFactory.newRegistryBYOTokenAndFriends(
-      token.address,
-      plcr.address,
-      parameterizer.address,
       'The TestChain Registry',
     );
-    const registry = Registry.at(registryReceipt.logs[0].args.registry);
+
+    const {
+      token,
+      plcr,
+      parameterizer,
+      registry,
+    } = registryReceipt.logs[0].args;
+
+    const tokenInstance = Token.at(token);
+    const votingProxy = PLCRVoting.at(plcr);
+    const paramProxy = Parameterizer.at(parameterizer);
+    const registryProxy = Registry.at(registry);
+
     return {
-      votingProxy: plcr,
-      paramProxy: parameterizer,
-      registryProxy: registry,
-      tokenInstance: token,
+      tokenInstance,
+      votingProxy,
+      paramProxy,
+      registryProxy,
     };
   },
 

@@ -15,7 +15,7 @@ contract('Registry', (accounts) => {
     before(async () => {
       const {
         votingProxy, paramProxy, registryProxy, tokenInstance,
-      } = await utils.getProxies(accounts[2]);
+      } = await utils.getProxies();
       voting = votingProxy;
       parameterizer = paramProxy;
       registry = registryProxy;

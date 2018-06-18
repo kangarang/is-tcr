@@ -14,7 +14,7 @@ contract('Parameterizer', (accounts) => {
     let parameterizer;
 
     before(async () => {
-      const { paramProxy, tokenInstance } = await utils.getProxies(accounts[2]);
+      const { paramProxy, tokenInstance } = await utils.getProxies();
       parameterizer = paramProxy;
       token = tokenInstance;
 
