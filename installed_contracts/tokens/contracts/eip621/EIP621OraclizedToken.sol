@@ -16,16 +16,14 @@ contract EIP621OraclizedToken is EIP621Token {
         uint256 _initialAmount,
         string _tokenName,
         uint8 _decimalUnits,
-        string _tokenSymbol,
-        address _supplyOracle
-    ) EIP621Token (
+        string _tokenSymbol
+    ) public EIP621Token (
         _initialAmount,
         _tokenName,
         _decimalUnits,
         _tokenSymbol
     ) {
-        require(_supplyOracle != 0);
-        supplyOracle = _supplyOracle; 
+        supplyOracle = msg.sender; 
     }
 
     function changeSupplyOracle(address _newOracle) public onlySupplyOracle returns (bool success) {
