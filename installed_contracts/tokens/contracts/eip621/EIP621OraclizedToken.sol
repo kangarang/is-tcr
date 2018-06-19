@@ -50,5 +50,5 @@ contract EIP621OraclizedToken is EIP621Token {
         return true;
     }
 
-    event SupplyOracleChanged(address indexed oldOracle, address indexed newOracle);
+    event SupplyOracleChanged(address oldOracle, address newOracle);
 }

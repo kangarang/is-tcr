@@ -13,23 +13,30 @@ const bigTen = number => new BN(number.toString(10), 10);
 contract('Registry', (accounts) => {
   describe('Function: claimReward', () => {
     const [applicant, challenger, voterAlice] = accounts;
-    const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let voting;
     let registry;
+    let parameterizer;
 
     before(async () => {
-      const { votingProxy, registryProxy, tokenInstance } = await utils.getProxies();
+      const {
+        votingProxy,
+        registryProxy,
+        tokenInstance,
+        paramProxy,
+      } = await utils.getProxies();
       voting = votingProxy;
       registry = registryProxy;
       token = tokenInstance;
+      parameterizer = paramProxy;
 
       await utils.approveProxies(accounts, token, voting, false, registry);
     });
 
     it('should transfer the correct number of tokens once a challenge has been resolved', async () => {
       const listing = utils.getListingHash('claimthis.net');
+      const minDeposit = await parameterizer.get.call('minDeposit');
 
       // Apply
       await utils.as(applicant, registry.apply, listing, minDeposit, '');
@@ -65,20 +72,19 @@ contract('Registry', (accounts) => {
     });
 
     it('should revert if challenge does not exist', async () => {
-      const listing = utils.getListingHash('reversion.net');
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
-
       try {
         const nonPollID = '666';
         await utils.as(voterAlice, registry.claimReward, nonPollID, '420');
-        assert(false, 'should not have been able to claimReward for non-existant challengeID');
       } catch (err) {
         assert(utils.isEVMException(err), err.toString());
+        return;
       }
+      assert(false, 'should not have been able to claimReward for non-existant challengeID');
     });
 
     it('should revert if provided salt is incorrect', async () => {
       const listing = utils.getListingHash('sugar.net');
+      const minDeposit = await parameterizer.get.call('minDeposit');
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
       const aliceStartBal = await token.balanceOf.call(voterAlice);
@@ -120,6 +126,7 @@ contract('Registry', (accounts) => {
 
     it('should not transfer tokens if msg.sender has already claimed tokens for a challenge', async () => {
       const listing = utils.getListingHash('sugar.net');
+      const minDeposit = await parameterizer.get.call('minDeposit');
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
@@ -172,6 +179,7 @@ contract('Registry', (accounts) => {
 
     it('should not transfer tokens for an unresolved challenge', async () => {
       const listing = utils.getListingHash('unresolved.net');
+      const minDeposit = await parameterizer.get.call('minDeposit');
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);

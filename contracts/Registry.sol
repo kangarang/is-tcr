@@ -20,7 +20,7 @@ contract Registry {
     event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
-    event _TokenSupplyIncreased(uint amount, address to);
+    event _TokenSupplyIncreased(uint amount, address to, uint newTotalSupply);
     event DEBUG(string name, uint value);
 
     using SafeMath for uint;
@@ -93,7 +93,7 @@ contract Registry {
         listing.owner = msg.sender;
 
         // Sets apply stage end time
-        listing.applicationExpiry = block.timestamp.add(parameterizer.get("applyStageLen"));
+        listing.applicationExpiry = now.add(parameterizer.get("applyStageLen"));
 
         // increase global totalNumCandidates
         totalNumCandidates += 1;
@@ -394,7 +394,7 @@ contract Registry {
             emit DEBUG("totalNumCandidates", totalNumCandidates);
             require(token.increaseSupply(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this));
             // 2400 + (3 * 4) -> 2412
-            emit _TokenSupplyIncreased(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this);
+            emit _TokenSupplyIncreased(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this, token.totalSupply());
         }
 
         // Case: challenge failed
