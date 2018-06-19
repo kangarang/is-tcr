@@ -122,8 +122,8 @@ contract('Registry', (accounts) => {
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 
       // commit x2
-      await utils.commitVote(pollID, '1', '10', '420', voterAlice, voting);
-      await utils.commitVote(pollID, '0', '1', '9001', voterBob, voting);
+      await utils.commitVote(pollID, '1', '5000', '420', voterAlice, voting);
+      await utils.commitVote(pollID, '0', '300', '9001', voterBob, voting);
       await utils.increaseTime(paramConfig.commitStageLength + 1);
 
       // reveal x2
@@ -135,6 +135,7 @@ contract('Registry', (accounts) => {
       await utils.as(applicant, registry.updateStatus, listing);
       const middleSupply = await token.totalSupply.call();
       console.log('middleSupply:', middleSupply.toString());
+      await utils.as(voterAlice, registry.claimReward, pollID, '420');
     });
   });
 });
