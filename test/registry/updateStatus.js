@@ -12,18 +12,20 @@ const bigTen = number => new BN(number.toString(10), 10);
 
 contract('Registry', (accounts) => {
   describe('Function: updateStatus', () => {
-    const [applicant, challenger] = accounts;
+    const [applicant, challenger, voterAlice, voterBob] = accounts;
     const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let registry;
+    let voting;
 
     before(async () => {
-      const { registryProxy, tokenInstance } = await utils.getProxies();
+      const { registryProxy, tokenInstance, votingProxy } = await utils.getProxies();
       registry = registryProxy;
       token = tokenInstance;
+      voting = votingProxy;
 
-      await utils.approveProxies(accounts, token, false, false, registry);
+      await utils.approveProxies(accounts, token, voting, false, registry);
     });
 
     it('should whitelist listing if apply stage ended without a challenge', async () => {
@@ -107,6 +109,32 @@ contract('Registry', (accounts) => {
         return;
       }
       assert(false, 'Listing should not have been whitelisted');
+    });
+
+    it('oldSupply + inflation + inflation = newSupply', async () => {
+      const listing = utils.getListingHash('blahblahblah.net');
+
+      const initialSupply = await token.totalSupply.call();
+      console.log('initialSupply:', initialSupply.toString());
+      // apply, whitelist
+      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      // challenge
+      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
+
+      // commit x2
+      await utils.commitVote(pollID, '1', '10', '420', voterAlice, voting);
+      await utils.commitVote(pollID, '0', '1', '9001', voterBob, voting);
+      await utils.increaseTime(paramConfig.commitStageLength + 1);
+
+      // reveal x2
+      await utils.as(voterAlice, voting.revealVote, pollID, '1', '420');
+      await utils.as(voterBob, voting.revealVote, pollID, '0', '9001');
+      await utils.increaseTime(paramConfig.revealStageLength + 1);
+
+      // resolveChallenge
+      await utils.as(applicant, registry.updateStatus, listing);
+      const middleSupply = await token.totalSupply.call();
+      console.log('middleSupply:', middleSupply.toString());
     });
   });
 });

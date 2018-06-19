@@ -17,8 +17,8 @@ contract Registry {
     event _ApplicationRemoved(bytes32 indexed listingHash);
     event _ListingRemoved(bytes32 indexed listingHash);
     event _ListingWithdrawn(bytes32 indexed listingHash);
-    event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
-    event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalTokens);
+    event _ChallengeFailed(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
+    event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _TokenSupplyIncreased(uint amount, address to);
     event DEBUG(string name, uint value);
@@ -36,7 +36,7 @@ contract Registry {
         uint rewardPool;        // (remaining) Pool of tokens to be distributed to winning voters (applicant/challenger -> voters)
         address challenger;     // Owner of Challenge
         bool resolved;          // Indication of if challenge is resolved
-        uint totalTokens;       // (remaining) Number of tokens used in voting by the winning side
+        uint totalWinningTokens;       // (remaining) Number of tokens used in voting by the winning side
         mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
         uint majorityBlocInflation;
         uint inflationFactor;
@@ -158,10 +158,10 @@ contract Registry {
             challenger: msg.sender,
             rewardPool: ((oneHundred.sub(parameterizer.get("dispensationPct"))).mul(minDeposit)).div(100),
             resolved: false,
-            totalTokens: 0,
+            totalWinningTokens: 0,
             majorityBlocInflation: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
-            tokenSupply: token.totalSupply().div(1000000000000000000)
+            tokenSupply: token.totalSupply()
         });
 
         // set the challengeID, prevent candidate from exiting
@@ -208,7 +208,7 @@ contract Registry {
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
 
         // more efficient since we already have voterTokens?
-        uint reward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalTokens);
+        uint reward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalWinningTokens);
         // uint reward = voterReward(msg.sender, _challengeID, _salt);
         // -> portion of the faceoff winnings that goes to the voter
 
@@ -227,13 +227,25 @@ contract Registry {
     // --------
 
     function voterInflationReward(uint _challengeID, uint _numTokens) public view returns (uint) {
-        // (100 * numTokens) / totalTokens -> percentage of totalWinningTokens
-        // (100 * 50) / 500 = 10%
-        uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalTokens);
+        // (numTokens * 100) / winningTokens
+        uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalWinningTokens);
+        // a) 10%   = (50 * 100) / 500
+        // b) 40%   = (8 * 100) / 20
+        // c) 27.8% = (1666.7 * 100) / 6000
+        // d) 10%   = (1 * 100) / 10
+        // e) 5%    = (200000 * 100) / 4000000
+        // f) 15%   = (90000000 * 100) / 600000000
+        // g) 6%    = (30000 * 100) / 500000
 
-        // (voterInflationShare * majorityBlocInflation) / 100 -> token amount
-        // 20 * 50 / 100 = 10 (tokens)
+        // (voterInflationShare * majorityBlocInflation) / 100
         return (voterInflationShare.mul(challenges[_challengeID].majorityBlocInflation)).div(100);
+        // a) 10    = (10 * 100) / 100
+        // b) 200   = (40 * 500) / 100
+        // c) 463.0 = (27.8 * 1666.7) / 100
+        // d) 5     = (10 * 50) / 100
+        // e) 62500 = (5 * 1250000) / 100
+        // f) 49.99 = (15 * 83.3) / 100
+        // g) 60000 = (6 * 1000000) / 100
     }
 
     /**
@@ -245,10 +257,10 @@ contract Registry {
     */
     function voterReward(address _voter, uint _challengeID, uint _salt)
     public view returns (uint) {
-        uint totalTokens = challenges[_challengeID].totalTokens;
+        uint totalWinningTokens = challenges[_challengeID].totalWinningTokens;
         uint rewardPool = challenges[_challengeID].rewardPool;
         uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);
-        return (voterTokens * rewardPool) / totalTokens;
+        return voterTokens.mul(rewardPool).div(totalWinningTokens);
     }
 
     /**
@@ -356,26 +368,53 @@ contract Registry {
 
         uint totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
         // Stores the total tokens used for voting by the winning side for reward purposes
-        challenges[challengeID].totalTokens = totalWinningTokens;
+        challenges[challengeID].totalWinningTokens = totalWinningTokens;
         uint tokenSupply = challenges[challengeID].tokenSupply;
+        emit DEBUG("totalWinningTokens", totalWinningTokens);
+        emit DEBUG("tokenSupply", tokenSupply.div(1000000000000000000));
 
         uint majorityBlocInflation = 0;
-        // TODO: is this necessary?
         if (totalWinningTokens > 0) {
-            // (token.totalSupply / totalWinningTokens) * inflation_factor
+            //                     (totalSupply / totalWinningTokens) * inflation_factor
             majorityBlocInflation = tokenSupply.div(totalWinningTokens).mul(challenges[challengeID].inflationFactor);
+            // a) 100       = (10000 / 500) * 5
+            // b) 500       = (2000 / 20) * 5
+            // c) 1666.7    = (1000000 / 6000) * 10
+            // d) 50        = (100 / 10) * 5
+            // e) 1250000   = (1000000000 / 4000000) * 5000
+            // f) 83.3      = (1000000000 / 600000000) * 50
+            // g) 1000000   = (1000000000 / 500000) * 500
+            // h) 642857.2  = (1000000000 / 7777777) * 5000
         }
-        // 100 / 10 * 5 = 50
         emit DEBUG("majorityBlocInflation", majorityBlocInflation);
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
 
-        // TODO: is this necessary?
         if (majorityBlocInflation > 0) {
-            // set the new minDeposit
+            // set the new minDeposit (proportional to the inflation above)
+            //                        (minDeposit * majorityBlocInflation) / totalSupply
             uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
-            // inflate token supply
-            // 100 -> 50 + (5 * 1) = 155
+            // a) 0.1       = (10 * 100) / 10000            -> 10.0
+            // b) 2.5       = (10 * 500) / 2000             -> 12.0
+            // c) 0.017     = (10 * ~1666.0) / 1000000      -> 10.0
+            // d) 5         = (10 * 50) / 100               -> 15
+            // e) 1.875     = (1500 * 1250000) / 1000000000 -> 1501.0
+            // f) 0.0001245 = (1500 * ~83.0) / 1000000000   -> 1500.0
+            // g) 1.5       = (1500 * 1000000) / 1000000000 -> 1501.0
+            // h) 0.96      = (1500 * 642857.2) / 1000000000 -> 1501.0
+
+            emit DEBUG("totalNumCandidates", totalNumCandidates);
+            // inflate token supply, withdrawable by candidates
             require(token.increaseSupply(majorityBlocInflation + (minDepositInflation * totalNumCandidates), this));
+            // a) 10100      = 10000 +      (100 + (~0.0 * 4))
+            // b) 2508       = 2000 +       (500 + (~2.0 * 4))
+            // c) 1001666    = 1000000 +    (~1666.0 + (~0.0 * 4))
+            // d) 170        = 100 +        (50 + (5 * 4))
+            // e) 1001250004 = 1000000000 + (1250000 + (~1.0 * 4))
+            // f) 1000000083 = 1000000000 + (~83.0 + (~0.0 * 4))
+            // g) 1001000004 = 1000000000 + (1000000 + (~1.0 * 4))
+
+            uint newSupp = token.totalSupply();
+            emit DEBUG("newSupp", newSupp.div(1000000000000000000));
             emit _TokenSupplyIncreased(majorityBlocInflation + (minDepositInflation * totalNumCandidates), this);
         }
 
