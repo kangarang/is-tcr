@@ -1,19 +1,15 @@
 /* eslint-env mocha */
 /* global assert contract */
 const fs = require('fs');
-const BN = require('bignumber.js');
 
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Registry', (accounts) => {
   describe('User stories', () => {
     const [applicant, challenger, voter] = accounts;
-    const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let voting;
@@ -30,7 +26,7 @@ contract('Registry', (accounts) => {
 
     it('should apply, fail challenge, and reject listing', async () => {
       const listing = utils.getListingHash('failChallenge.net'); // listing to apply with
-      await registry.apply(listing, paramConfig.minDeposit, '', { from: applicant });
+      await registry.apply(listing, '', { from: applicant });
       await registry.challenge(listing, '', { from: challenger });
 
       await utils.increaseTime(paramConfig.revealStageLength + paramConfig.commitStageLength + 1);
@@ -44,7 +40,7 @@ contract('Registry', (accounts) => {
     it('should apply, pass challenge, and whitelist listing', async () => {
       const listing = utils.getListingHash('passChallenge.net');
 
-      await utils.as(applicant, registry.apply, listing, minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
 
       // Challenge and get back the pollID
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);

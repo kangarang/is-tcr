@@ -26,7 +26,7 @@ contract('Registry', (accounts) => {
       const listing = utils.getListingHash('failure.net');
 
       // Apply
-      await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
       // Challenge
       const challengeID = await utils.challengeAndGetPollID(listing, challenger, registry);
       // Resolve challenge
@@ -52,7 +52,7 @@ contract('Registry', (accounts) => {
       const listing = utils.getListingHash('failure.net');
 
       // Apply
-      await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
       // Challenge
       const challengeID = await utils.challengeAndGetPollID(listing, challenger, registry);
 

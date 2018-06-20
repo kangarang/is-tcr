@@ -80,13 +80,11 @@ contract Registry {
     @dev                Allows a user to start an application. Takes tokens from user and sets
                         apply stage end time.
     @param _listingHash The hash of a potential listing a user is applying to add to the registry
-    @param _amount      The number of ERC20 tokens a user is willing to potentially stake
     @param _data        Extra data relevant to the application. Think IPFS hashes.
     */
-    function apply(bytes32 _listingHash, uint _amount, string _data) external {
+    function apply(bytes32 _listingHash, string _data) external {
         require(!isWhitelisted(_listingHash));
         require(!appWasMade(_listingHash));
-        require(_amount >= parameterizer.get("minDeposit"));
 
         // Sets owner
         Listing storage listing = listings[_listingHash];
@@ -99,9 +97,9 @@ contract Registry {
         totalNumCandidates += 1;
 
         // Transfers tokens from user to Registry contract
-        require(token.transferFrom(listing.owner, this, _amount));
+        require(token.transferFrom(listing.owner, this, parameterizer.get("minDeposit")));
 
-        emit _Application(_listingHash, _amount, listing.applicationExpiry, _data, msg.sender);
+        emit _Application(_listingHash, parameterizer.get("minDeposit"), listing.applicationExpiry, _data, msg.sender);
     }
 
     /**
@@ -207,8 +205,17 @@ contract Registry {
 
         // msg sender's tokens committed/revealed for this challenge
         uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
+        // note: should there be a check to require that voterTokens > 0 ?
+        //      or is it "you're on your own"? why should winners pay for extra computations?
+        //      - if so, document this in the owner's manual
+
         // portion of the faceoff winnings that goes to the voter
-        uint reward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalWinningTokens);
+        // minDeposit: 10 -> challenger loser's forfeited numTokens
+        // dispensationPct: 40 -> challenge winner
+        // rewardPool: 6 -> winning voters
+        // 80 * 6 / 100 -> 4
+        // 10 * 6 / 5000 -> 0.012 (rounded down to 0)
+        uint challengeReward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalWinningTokens);
         // calculate additional token-weighted inflation reward
         uint inflationReward = voterInflationReward(_challengeID, voterTokens);
 
@@ -216,8 +223,8 @@ contract Registry {
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 	
         // transfer the sum of both rewards
-        require(token.transfer(msg.sender, reward.add(inflationReward)));
-        emit _RewardClaimed(_challengeID, reward, msg.sender);
+        require(token.transfer(msg.sender, challengeReward.add(inflationReward)));
+        emit _RewardClaimed(_challengeID, challengeReward.add(inflationReward), msg.sender);
     }
 
     // --------
@@ -229,6 +236,9 @@ contract Registry {
         // (numTokens * 100) / totalWinningTokens
         uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalWinningTokens);
         // (800 * 100) / 5000 -> 16 (%)
+        // (5 * 100) / 5000 ->
+        // TODO: calculate percentages better!
+        // TODO: add test cases for all sorts of numbers
 
         emit DEBUG("voterInflationShare", voterInflationShare);
 

@@ -27,7 +27,7 @@ contract('Registry', (accounts) => {
     it('should allow a new listing to apply', async () => {
       const listing = utils.getListingHash('nochallenge.net');
 
-      await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
 
       // get the struct in the mapping
       const result = await registry.listings.call(listing);
@@ -45,7 +45,7 @@ contract('Registry', (accounts) => {
       assert.strictEqual(result[2], applicant, 'owner of application != address that applied');
 
       try {
-        await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+        await utils.as(applicant, registry.apply, listing, '');
       } catch (err) {
         assert(utils.isEVMException(err), err.toString());
         return;
@@ -72,7 +72,7 @@ contract('Registry', (accounts) => {
       assert.strictEqual(result, true, 'listing was not already whitelisted.');
 
       try {
-        await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+        await utils.as(applicant, registry.apply, listing, '');
       } catch (err) {
         // TODO: Check if EVM error
         const errMsg = err.toString();
@@ -90,7 +90,7 @@ contract('Registry', (accounts) => {
         await token.approve(registry.address, '0', { from: applicant });
 
         try {
-          await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+          await utils.as(applicant, registry.apply, listing, '');
         } catch (err) {
           assert(utils.isEVMException(err), err.toString());
           return;
@@ -125,27 +125,12 @@ contract('Registry', (accounts) => {
       const listing = utils.getListingHash('overflow.net');
 
       try {
-        await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+        await utils.as(applicant, registry.apply, listing, '');
       } catch (err) {
         assert(utils.isEVMException(err), err.toString());
         return;
       }
       assert(false, 'app expiry was allowed to overflow!');
-    });
-
-    it('should revert if the deposit amount is less than the minDeposit', async () => {
-      const listing = utils.getListingHash('smallDeposit.net');
-
-      const minDeposit = await parameterizer.get.call('minDeposit');
-      const deposit = minDeposit.sub(10);
-
-      try {
-        await utils.as(applicant, registry.apply, listing, deposit.toString(), '');
-      } catch (err) {
-        assert(utils.isEVMException(err), err.toString());
-        return;
-      }
-      assert(false, 'allowed an application with deposit less than minDeposit');
     });
   });
 });

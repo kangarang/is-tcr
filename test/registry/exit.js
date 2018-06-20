@@ -113,7 +113,7 @@ contract('Registry', (accounts) => {
     it('should revert if listing is in application stage', async () => {
       const listing = utils.getListingHash('real.net');
 
-      await utils.as(applicant, registry.apply, listing, paramConfig.minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
 
       try {
         await registry.exit(listing, { from: applicant });

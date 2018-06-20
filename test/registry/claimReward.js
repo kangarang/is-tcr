@@ -36,10 +36,9 @@ contract('Registry', (accounts) => {
 
     it('should transfer the correct number of tokens once a challenge has been resolved', async () => {
       const listing = utils.getListingHash('claimthis.net');
-      const minDeposit = await parameterizer.get.call('minDeposit');
 
       // Apply
-      await utils.as(applicant, registry.apply, listing, minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
       // Challenge
@@ -56,8 +55,8 @@ contract('Registry', (accounts) => {
       // Update status
       await utils.as(applicant, registry.updateStatus, listing);
       // Alice claims reward
-      const aliceVoterReward = await registry.voterReward(voterAlice, pollID, '420');
-      const aliceInflationReward = await registry.voterInflationReward(pollID, 500);
+      const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, '420');
+      const aliceInflationReward = await registry.voterInflationReward.call(pollID, 500);
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
       // Alice withdraws her voting rights
       await utils.as(voterAlice, voting.withdrawVotingRights, '500');
@@ -129,7 +128,6 @@ contract('Registry', (accounts) => {
       const minDeposit = await parameterizer.get.call('minDeposit');
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
-      const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
       await utils.addToWhitelist(listing, minDeposit, applicant, registry);
 
@@ -146,6 +144,8 @@ contract('Registry', (accounts) => {
 
       // Update status
       await utils.as(applicant, registry.updateStatus, listing);
+
+      const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
       // Claim reward
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
@@ -165,11 +165,11 @@ contract('Registry', (accounts) => {
         'applicants ending balance is incorrect',
       );
 
+      const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, '420');
       const aliceInflationReward = await registry.voterInflationReward.call(pollID, 500);
 
       const aliceEndingBalance = await token.balanceOf.call(voterAlice);
-      const aliceExpected = aliceStartingBalance.add(minDeposit.div(bigTen(2))).sub(bigTen(500))
-        .add(aliceInflationReward);
+      const aliceExpected = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);
 
       assert.strictEqual(
         aliceEndingBalance.toString(10), aliceExpected.toString(10),

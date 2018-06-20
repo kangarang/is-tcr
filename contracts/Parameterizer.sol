@@ -98,10 +98,10 @@ contract Parameterizer {
 
         // length of commit period for voting
         set("commitStageLen", _parameters[4]);
-        
+
         // length of commit period for voting in parameterizer
         set("pCommitStageLen", _parameters[5]);
-        
+
         // length of reveal period for voting
         set("revealStageLen", _parameters[6]);
 
@@ -124,6 +124,7 @@ contract Parameterizer {
         set("inflationFactor", _parameters[12]);  
     }
 
+    // TODO: supplyOracle -> transfer to/from registry if minDeposit manually set
     function setMinDeposit(uint _majorityBlocInflation, uint _tokenSupply) public onlySupplyOracle returns (uint) {
         uint minDeposit = get("minDeposit");
 
@@ -132,6 +133,7 @@ contract Parameterizer {
         // minDeposit * (totalSupply + majorityBlocInflation) / totalSupply
         uint newMinDeposit = minDeposit.mul(_tokenSupply.add(_majorityBlocInflation)).div(_tokenSupply);
         // (10 * (8000 + 2400)) / 8000 -> 13
+        // note: assert correct ratios?
 
         set("minDeposit", newMinDeposit);
         emit _MinDepositSet(newMinDeposit);

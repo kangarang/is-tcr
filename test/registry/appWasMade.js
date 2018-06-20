@@ -1,19 +1,15 @@
 /* eslint-env mocha */
 /* global assert contract */
 const fs = require('fs');
-const BN = require('bignumber.js');
 
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Registry', (accounts) => {
   describe('Function: appWasMade', () => {
     const [applicant] = accounts;
-    const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let registry;
@@ -30,7 +26,7 @@ contract('Registry', (accounts) => {
       const listing = utils.getListingHash('wasthismade.net');
 
       // Apply
-      await utils.as(applicant, registry.apply, listing, minDeposit, '');
+      await utils.as(applicant, registry.apply, listing, '');
       const result = await registry.appWasMade(listing);
       assert.strictEqual(result, true, 'should have returned true for the applied listing');
 
