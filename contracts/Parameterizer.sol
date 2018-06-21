@@ -17,7 +17,7 @@ contract Parameterizer {
     event _ChallengeSucceeded(bytes32 indexed propID, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _ChallengeFailed(bytes32 indexed propID, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
-    event _MinDepositSet(uint minDeposit);
+    event _MinDepositSet(uint minDeposit, uint oldMinDeposit);
 
 
     // ------
@@ -136,7 +136,7 @@ contract Parameterizer {
         // note: assert correct ratios?
 
         set("minDeposit", newMinDeposit);
-        emit _MinDepositSet(newMinDeposit);
+        emit _MinDepositSet(newMinDeposit, minDeposit);
         return newMinDeposit.sub(minDeposit);
     }
 
