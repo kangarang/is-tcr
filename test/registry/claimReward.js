@@ -56,7 +56,7 @@ contract('Registry', (accounts) => {
       await utils.as(applicant, registry.updateStatus, listing);
       // Alice claims reward
       const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, '420');
-      const aliceInflationReward = await registry.voterInflationReward.call(pollID, 500);
+      const aliceInflationReward = await registry.voterInflationReward.call(voterAlice, pollID, '420');
       await utils.as(voterAlice, registry.claimReward, pollID, '420');
       // Alice withdraws her voting rights
       await utils.as(voterAlice, voting.withdrawVotingRights, '500');
@@ -166,7 +166,7 @@ contract('Registry', (accounts) => {
       );
 
       const aliceVoterReward = await registry.voterReward.call(voterAlice, pollID, '420');
-      const aliceInflationReward = await registry.voterInflationReward.call(pollID, 500);
+      const aliceInflationReward = await registry.voterInflationReward.call(voterAlice, pollID, '420');
 
       const aliceEndingBalance = await token.balanceOf.call(voterAlice);
       const aliceExpected = aliceStartingBalance.add(aliceVoterReward).add(aliceInflationReward);

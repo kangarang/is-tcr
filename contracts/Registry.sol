@@ -41,6 +41,7 @@ contract Registry {
         uint majorityBlocInflation;
         uint inflationFactor;
         uint tokenSupply;
+        uint stake;
     }
 
     // Maps challengeIDs to associated challenge data
@@ -159,7 +160,8 @@ contract Registry {
             totalWinningTokens: 0,
             majorityBlocInflation: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
-            tokenSupply: token.totalSupply().div(1000000000000000000)
+            tokenSupply: token.totalSupply().div(1000000000000000000),
+            stake: minDeposit
         });
 
         // set the challengeID, prevent candidate from exiting
@@ -203,21 +205,10 @@ contract Registry {
         require(challenges[_challengeID].tokenClaims[msg.sender] == false);
         require(challenges[_challengeID].resolved == true);
 
-        // msg sender's tokens committed/revealed for this challenge
-        uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
-        // note: should there be a check to require that voterTokens > 0 ?
-        //      or is it "you're on your own"? why should winners pay for extra computations?
-        //      - if so, document this in the owner's manual
-
-        // portion of the faceoff winnings that goes to the voter
-        // minDeposit: 10 -> challenger loser's forfeited numTokens
-        // dispensationPct: 40 -> challenge winner
-        // rewardPool: 6 -> winning voters
-        // 80 * 6 / 100 -> 4
-        // 10 * 6 / 5000 -> 0.012 (rounded down to 0)
-        uint challengeReward = voterTokens.mul(challenges[_challengeID].rewardPool).div(challenges[_challengeID].totalWinningTokens);
-        // calculate additional token-weighted inflation reward
-        uint inflationReward = voterInflationReward(_challengeID, voterTokens);
+        // calculate user's portion of challenge reward (% of rewardPool)
+        uint challengeReward = voterReward(msg.sender, _challengeID, _salt);
+        // calculate user's portion of inflation reward (% of majorityBlocInflation)
+        uint inflationReward = voterInflationReward(msg.sender, _challengeID, _salt);
 
         // Ensures a voter cannot claim tokens again
         challenges[_challengeID].tokenClaims[msg.sender] = true;
@@ -230,23 +221,6 @@ contract Registry {
     // --------
     // GETTERS:
     // --------
-
-    function voterInflationReward(uint _challengeID, uint _numTokens) public view returns (uint) {
-        // calculate the uint percentage of the majority bloc inflation reward
-        // (numTokens * 100) / totalWinningTokens
-        uint voterInflationShare = (_numTokens.mul(100)).div(challenges[_challengeID].totalWinningTokens);
-        // (800 * 100) / 5000 -> 16 (%)
-        // (5 * 100) / 5000 ->
-        // TODO: calculate percentages better!
-        // TODO: add test cases for all sorts of numbers
-
-        emit DEBUG("voterInflationShare", voterInflationShare);
-
-        // return the amount in tokens
-        // (voterInflationShare * majorityBlocInflation) / 100
-        return (voterInflationShare.mul(challenges[_challengeID].majorityBlocInflation)).div(100);
-        // (16 * 2400) / 100 -> 384 tokens
-    }
 
     /**
     @dev                Calculates the provided voter's token reward for the given poll.
@@ -261,6 +235,20 @@ contract Registry {
         uint rewardPool = challenges[_challengeID].rewardPool;
         uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);
         return voterTokens.mul(rewardPool).div(totalWinningTokens);
+    }
+
+    /**
+    @dev                Calculates the provided voter's inflation reward for the given poll.
+    @param _voter       The address of the voter whose inflation reward is to be returned
+    @param _challengeID The pollID of the challenge an inflation reward is being queried for
+    @param _salt        The salt of the voter's commit hash in the given poll
+    @return             The uint indicating the voter's inflation reward
+    */
+    function voterInflationReward(address _voter, uint _challengeID, uint _salt) public view returns (uint) {
+        uint totalWinningTokens = challenges[_challengeID].totalWinningTokens;
+        uint majorityBlocInflation = challenges[_challengeID].majorityBlocInflation;
+        uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);
+        return voterTokens.mul(majorityBlocInflation).div(totalWinningTokens);
     }
 
     /**
@@ -332,10 +320,16 @@ contract Registry {
 
         // Edge case, nobody voted, give all tokens to the challenger.
         if (voting.getTotalNumberOfTokensForWinningOption(_challengeID) == 0) {
-            return 2 * parameterizer.get("minDeposit");
+            return challenges[_challengeID].stake.mul(2);
         }
 
-        return (2 * parameterizer.get("minDeposit")) - challenges[_challengeID].rewardPool;
+        // case: applicant won
+        if (voting.isPassed(_challengeID)) {
+            return challenges[_challengeID].stake.sub(challenges[_challengeID].rewardPool);
+        }
+
+        // case: challenger won
+        return (challenges[_challengeID].stake.mul(2)).sub(challenges[_challengeID].rewardPool);
     }
 
     /**
@@ -360,8 +354,9 @@ contract Registry {
         uint challengeID = listings[_listingHash].challengeID;
 
         // Calculates the winner's reward,
-        // which is: (winner's full stake) + (dispensationPct * loser's stake)
-        uint reward = determineReward(challengeID);
+        // if applicant wins: dispensationPct * challenger's stake
+        // if challenger wins: stake + (dispensationPct * applicant's stake)
+        uint challengeWinnerReward = determineReward(challengeID);
 
         // Sets flag on challenge being processed
         challenges[challengeID].resolved = true;
@@ -410,13 +405,13 @@ contract Registry {
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
             whitelistApplication(_listingHash);
+            require(token.transfer(listings[_listingHash].owner, challengeWinnerReward));
             emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
         }
         // Case: challenge succeeded or nobody voted
         else {
             resetListing(_listingHash);
-            // Transfer the reward to the challenger
-            require(token.transfer(challenges[challengeID].challenger, reward));
+            require(token.transfer(challenges[challengeID].challenger, challengeWinnerReward));
             emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
         }
     }
