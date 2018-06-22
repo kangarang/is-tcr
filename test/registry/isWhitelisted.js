@@ -1,9 +1,5 @@
 /* eslint-env mocha */
 /* global assert contract */
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('./conf/config.json'));
-const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
@@ -30,7 +26,7 @@ contract('Registry', (accounts) => {
 
     it('should verify a listing is in the whitelist', async () => {
       const listing = utils.getListingHash('eth.eth');
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
       const result = await registry.isWhitelisted.call(listing);
       assert.strictEqual(result, true, 'Listing should have been whitelisted');
     });

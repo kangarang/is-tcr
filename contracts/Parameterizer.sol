@@ -76,7 +76,7 @@ contract Parameterizer {
     function init(
         address _token,
         address _plcr,
-        uint[] _parameters
+        uint[13] _parameters
     ) public {
         require(_token != 0 && address(token) == 0);
         require(_plcr != 0 && address(voting) == 0);

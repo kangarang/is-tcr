@@ -229,8 +229,7 @@ contract Registry {
     @param _salt        The salt of the voter's commit hash in the given poll
     @return             The uint indicating the voter's reward
     */
-    function voterReward(address _voter, uint _challengeID, uint _salt)
-    public view returns (uint) {
+    function voterReward(address _voter, uint _challengeID, uint _salt) public view returns (uint) {
         uint totalWinningTokens = challenges[_challengeID].totalWinningTokens;
         uint rewardPool = challenges[_challengeID].rewardPool;
         uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);

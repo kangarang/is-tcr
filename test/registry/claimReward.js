@@ -87,7 +87,7 @@ contract('Registry', (accounts) => {
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
       const aliceStartBal = await token.balanceOf.call(voterAlice);
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 
@@ -129,7 +129,7 @@ contract('Registry', (accounts) => {
 
       const applicantStartingBalance = await token.balanceOf.call(applicant);
 
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       // Challenge
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
@@ -184,7 +184,7 @@ contract('Registry', (accounts) => {
       const applicantStartingBalance = await token.balanceOf.call(applicant);
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
 
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       // Challenge
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);

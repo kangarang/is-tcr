@@ -1,18 +1,14 @@
 /* eslint-env mocha */
 /* global assert contract */
 const fs = require('fs');
-const BN = require('bignumber.js');
 
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Registry', (accounts) => {
   describe('Function: tokenClaims', () => {
-    const minDeposit = bigTen(paramConfig.minDeposit);
     const [applicant, challenger, voter] = accounts;
 
     let token;
@@ -31,7 +27,7 @@ contract('Registry', (accounts) => {
     it('should report properly whether a voter has claimed tokens', async () => {
       const listing = utils.getListingHash('claims.com');
 
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
 

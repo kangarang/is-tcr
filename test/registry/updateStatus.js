@@ -1,19 +1,15 @@
 /* eslint-env mocha */
 /* global assert contract */
 const fs = require('fs');
-const BN = require('bignumber.js');
 
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
-const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Registry', (accounts) => {
   describe('Function: updateStatus', () => {
     const [applicant, challenger] = accounts;
-    const minDeposit = bigTen(paramConfig.minDeposit);
 
     let token;
     let registry;
@@ -31,7 +27,7 @@ contract('Registry', (accounts) => {
     it('should whitelist listing if apply stage ended without a challenge', async () => {
       const listing = utils.getListingHash('whitelist.io');
       // note: this function calls registry.updateStatus at the end
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const result = await registry.isWhitelisted.call(listing);
       assert.strictEqual(result, true, 'Listing should have been whitelisted');
@@ -94,7 +90,7 @@ contract('Registry', (accounts) => {
     it('should not be possible to add a listing to the whitelist just by calling updateStatus after it has been previously removed', async () => {
       const listing = utils.getListingHash('somanypossibilities.net');
 
-      await utils.addToWhitelist(listing, minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
       const resultOne = await registry.isWhitelisted(listing);
       assert.strictEqual(resultOne, true, 'Listing should have been whitelisted');
 

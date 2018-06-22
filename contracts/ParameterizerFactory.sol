@@ -29,7 +29,7 @@ contract ParameterizerFactory {
     */
     function newParameterizerBYOToken(
         EIP621OraclizedToken _token,
-        uint[] _parameters
+        uint[13] _parameters
     ) public returns (Parameterizer) {
         // Deploy & initialize a new PLCRVoting proxy contract
         PLCRVoting plcr = plcrFactory.newPLCRBYOToken(_token);
@@ -59,7 +59,7 @@ contract ParameterizerFactory {
         string _name,
         uint8 _decimals,
         string _symbol,
-        uint[] _parameters
+        uint[13] _parameters
     ) public returns (Parameterizer) {
         // Creates a new EIP621OraclizedToken token
         // Deploys & initializes a new PLCRVoting proxy contract

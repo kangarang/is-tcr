@@ -1,9 +1,5 @@
 /* eslint-env mocha */
 /* global assert contract */
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('./conf/config.json'));
-const paramConfig = config.paramDefaults;
 
 const utils = require('../utils.js');
 
@@ -27,7 +23,7 @@ contract('Registry', (accounts) => {
 
       const initialApplicantTokenHoldings = await token.balanceOf.call(applicant);
 
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const isWhitelisted = await registry.isWhitelisted.call(listing);
       assert.strictEqual(isWhitelisted, true, 'the listing was not added to the registry');
@@ -50,7 +46,7 @@ contract('Registry', (accounts) => {
 
       const initialApplicantTokenHoldings = await token.balanceOf.call(applicant);
 
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const isWhitelisted = await registry.isWhitelisted.call(listing);
       assert.strictEqual(isWhitelisted, true, 'the listing was not added to the registry');
@@ -83,7 +79,7 @@ contract('Registry', (accounts) => {
 
       const initialApplicantTokenHoldings = await token.balanceOf.call(applicant);
 
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const isWhitelisted = await registry.isWhitelisted.call(listing);
       assert.strictEqual(isWhitelisted, true, 'the listing was not added to the registry');

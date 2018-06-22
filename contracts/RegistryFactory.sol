@@ -28,7 +28,7 @@ contract RegistryFactory {
     */
     function newRegistryBYOToken(
         EIP621OraclizedToken _token,
-        uint[] _parameters,
+        uint[13] _parameters,
         string _name
     ) public returns (Registry) {
         // Deploy & initialize new PLCRVoting & Parameterizer proxy contracts
@@ -56,7 +56,7 @@ contract RegistryFactory {
         string _tokenName,
         uint8 _decimals,
         string _symbol,
-        uint[] _parameters,
+        uint[13] _parameters,
         string _registryName
     ) public returns (Registry) {
         // Creates a new EIP621OraclizedToken token

@@ -115,7 +115,7 @@ const utils = {
     await token.approve(plcrAddr, adtAmount, { from: address });
   },
 
-  addToWhitelist: async (domain, deposit, actor, registry) => {
+  addToWhitelist: async (domain, actor, registry) => {
     await utils.as(actor, registry.apply, domain, '');
     await utils.increaseTime(paramConfig.applyStageLength + 1);
     await utils.as(actor, registry.updateStatus, domain);

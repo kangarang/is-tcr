@@ -54,11 +54,9 @@ contract('Registry', (accounts) => {
 
     it('should successfully challenge a listing', async () => {
       const listing = utils.getListingHash('failure.net');
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const challengerStartingBalance = await token.balanceOf.call(challenger);
-
-      await utils.addToWhitelist(listing, paramConfig.minDeposit, applicant, registry);
-
       await utils.challengeAndGetPollID(listing, challenger, registry);
       await utils.increaseTime(paramConfig.commitStageLength + paramConfig.revealStageLength + 1);
       await registry.updateStatus(listing);
@@ -96,8 +94,7 @@ contract('Registry', (accounts) => {
 
     it('should unsuccessfully challenge a listing', async () => {
       const listing = utils.getListingHash('winner2.net');
-      const minDeposit = await parameterizer.get('minDeposit');
-      await utils.addToWhitelist(listing, minDeposit.toString(), applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
       await utils.commitVote(pollID, 1, 10, 420, voter, voting);
@@ -124,9 +121,7 @@ contract('Registry', (accounts) => {
 
     it('should revert if challenge occurs on a listing with an open challenge', async () => {
       const listing = utils.getListingHash('doubleChallenge.net');
-      const minDeposit = new BN(await parameterizer.get.call('minDeposit'), 10);
-
-      await utils.addToWhitelist(listing, minDeposit.toString(), applicant, registry);
+      await utils.addToWhitelist(listing, applicant, registry);
 
       await utils.challengeAndGetPollID(listing, challenger, registry);
 
