@@ -154,8 +154,8 @@ contract Registry {
 
         uint oneHundred = 100; // Kludge that we need to use SafeMath
         challenges[pollID] = Challenge({
-            challenger: msg.sender,
             rewardPool: ((oneHundred.sub(parameterizer.get("dispensationPct"))).mul(minDeposit)).div(100),
+            challenger: msg.sender,
             resolved: false,
             totalWinningTokens: 0,
             majorityBlocInflation: 0,
