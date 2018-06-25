@@ -21,7 +21,6 @@ contract Registry {
     event _ChallengeSucceeded(bytes32 indexed listingHash, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _TokenSupplyIncreased(uint amount, address to, uint newTotalSupply);
-    event DEBUG(string name, uint value);
 
     using SafeMath for uint;
 
@@ -160,7 +159,7 @@ contract Registry {
             totalWinningTokens: 0,
             majorityBlocInflation: 0,
             inflationFactor: parameterizer.get("inflationFactor"),
-            tokenSupply: token.totalSupply().div(1000000000000000000),
+            tokenSupply: token.totalSupply(),
             stake: minDeposit
         });
 
@@ -346,10 +345,9 @@ contract Registry {
     @param _totalWinningTokens  The total number of tokens voted by the majority bloc voters
     */
     function getMajorityBlocInflation(uint _challengeID, uint _totalWinningTokens) public view returns (uint) {
-        // 3000 raw           =  (8000 - 5000)
+        // unmodulated amount: totalSupply - winningTokens
         uint unmodulatedTokensToMint = challenges[_challengeID].tokenSupply.sub(_totalWinningTokens);
-        emit DEBUG("unmodulatedTokensToMint", unmodulatedTokensToMint);
-        // 2400 modulated     =  (80 * 3000) / 100
+        // modulated: inflation factor percentage of raw amount
         return challenges[_challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);
     }
 
@@ -376,14 +374,9 @@ contract Registry {
         // Stores the total tokens used for voting by the winning side for reward purposes
         uint totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
         challenges[challengeID].totalWinningTokens = totalWinningTokens;
-        emit DEBUG("totalWinningTokens", totalWinningTokens);
 
+        // calculate the inflation reward that is reserved for majority bloc voters
         uint majorityBlocInflation = getMajorityBlocInflation(challengeID, totalWinningTokens);
-        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
-
-        // tokens NOT in the majority bloc voters are subject to inflation-dilution (remainder of total_supply - majority_bloc_tokens)
-        // inflationFactor is parameter uint percentage. it modifies the actual number of tokens that will be inflated
-
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
 
@@ -405,10 +398,8 @@ contract Registry {
             uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, challenges[challengeID].tokenSupply);
 
             // use the minDepositInflation to calculate additional inflation, withdrawable by candidates
-            // inflate token supply for winner-voters + all candidates
-            emit DEBUG("totalNumCandidates", totalNumCandidates);
+            // inflate token supply for winner-voters + all candidates -- to keep up with the token's inflating supply
             require(token.increaseSupply(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this));
-            // 2400 + (3 * 4) -> 2412
             emit _TokenSupplyIncreased(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this, token.totalSupply());
         }
     }
