@@ -340,6 +340,19 @@ contract Registry {
         return challenges[_challengeID].tokenClaims[_voter];
     }
 
+    /**
+    @dev                        Getter for majority bloc inflation reward
+    @param _challengeID         The poll ID to query
+    @param _totalWinningTokens  The total number of tokens voted by the majority bloc voters
+    */
+    function getMajorityBlocInflation(uint _challengeID, uint _totalWinningTokens) public view returns (uint) {
+        // 3000 raw           =  (8000 - 5000)
+        uint unmodulatedTokensToMint = challenges[_challengeID].tokenSupply.sub(_totalWinningTokens);
+        emit DEBUG("unmodulatedTokensToMint", unmodulatedTokensToMint);
+        // 2400 modulated     =  (80 * 3000) / 100
+        return challenges[_challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);
+    }
+
     // ----------------
     // PRIVATE FUNCTIONS:
     // ----------------
@@ -371,20 +384,6 @@ contract Registry {
 
         // tokens NOT in the majority bloc voters are subject to inflation-dilution (remainder of total_supply - majority_bloc_tokens)
         // inflationFactor is parameter uint percentage. it modifies the actual number of tokens that will be inflated
-
-        // e.g.
-        // token.totalSupply: 8000,
-        // challenge.totalWinningTokens: 5000,
-        // parameters.inflationFactor: 80
-        uint majorityBlocInflation = 0;
-        if (totalWinningTokens > 0) {
-            // 3000 raw           =  (8000 - 5000)
-            uint unmodulatedTokensToMint = tokenSupply.sub(totalWinningTokens);
-            emit DEBUG("unmodulatedTokensToMint", unmodulatedTokensToMint);
-            // 2400 modulated     =  (80 * 3000) / 100
-            majorityBlocInflation = challenges[challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);
-        }
-        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
 
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
