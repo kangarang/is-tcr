@@ -378,27 +378,14 @@ contract Registry {
         challenges[challengeID].totalWinningTokens = totalWinningTokens;
         emit DEBUG("totalWinningTokens", totalWinningTokens);
 
-        // Get the tokenSupply at the time of the challenge
-        uint tokenSupply = challenges[challengeID].tokenSupply;
-        emit DEBUG("tokenSupply", tokenSupply);
+        uint majorityBlocInflation = getMajorityBlocInflation(challengeID, totalWinningTokens);
+        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
 
         // tokens NOT in the majority bloc voters are subject to inflation-dilution (remainder of total_supply - majority_bloc_tokens)
         // inflationFactor is parameter uint percentage. it modifies the actual number of tokens that will be inflated
 
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
-
-        if (majorityBlocInflation > 0) {
-            // set the new minDeposit proportional to the inflation
-            uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, tokenSupply);
-
-            // use the minDepositInflation to calculate additional inflation, withdrawable by candidates
-            // inflate token supply for winner-voters + all candidates
-            emit DEBUG("totalNumCandidates", totalNumCandidates);
-            require(token.increaseSupply(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this));
-            // 2400 + (3 * 4) -> 2412
-            emit _TokenSupplyIncreased(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this, token.totalSupply());
-        }
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
@@ -411,6 +398,18 @@ contract Registry {
             resetListing(_listingHash);
             require(token.transfer(challenges[challengeID].challenger, challengeWinnerReward));
             emit _ChallengeSucceeded(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
+        }
+
+        if (majorityBlocInflation > 0) {
+            // set the new minDeposit proportional to the inflation
+            uint minDepositInflation = parameterizer.setMinDeposit(majorityBlocInflation, challenges[challengeID].tokenSupply);
+
+            // use the minDepositInflation to calculate additional inflation, withdrawable by candidates
+            // inflate token supply for winner-voters + all candidates
+            emit DEBUG("totalNumCandidates", totalNumCandidates);
+            require(token.increaseSupply(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this));
+            // 2400 + (3 * 4) -> 2412
+            emit _TokenSupplyIncreased(majorityBlocInflation.add(minDepositInflation.mul(totalNumCandidates)), this, token.totalSupply());
         }
     }
 
