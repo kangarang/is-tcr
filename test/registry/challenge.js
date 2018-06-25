@@ -55,19 +55,23 @@ contract('Registry', (accounts) => {
     it('should successfully challenge a listing', async () => {
       const listing = utils.getListingHash('failure.net');
       await utils.addToWhitelist(listing, applicant, registry);
+      const minDeposit = await parameterizer.get.call('minDeposit');
 
+      // challenge
       const challengerStartingBalance = await token.balanceOf.call(challenger);
-      await utils.challengeAndGetPollID(listing, challenger, registry);
+      const pollID = await utils.challengeAndGetPollID(listing, challenger, registry);
       await utils.increaseTime(paramConfig.commitStageLength + paramConfig.revealStageLength + 1);
-      await registry.updateStatus(listing);
+      const challengeReward = await registry.determineReward.call(pollID);
 
+      // resolve challenge
+      await registry.updateStatus(listing);
       const isWhitelisted = await registry.isWhitelisted.call(listing);
       assert.strictEqual(isWhitelisted, false, 'An application which should have failed succeeded');
 
       const challengerFinalBalance = await token.balanceOf.call(challenger);
       // Note edge case: no voters, so challenger gets entire stake
       const expectedFinalBalance =
-        challengerStartingBalance.add(new BN(paramConfig.minDeposit, 10));
+        challengerStartingBalance.sub(minDeposit).add(challengeReward);
       assert.strictEqual(
         challengerFinalBalance.toString(10), expectedFinalBalance.toString(10),
         'Reward not properly disbursed to challenger',
