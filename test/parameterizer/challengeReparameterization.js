@@ -27,18 +27,21 @@ contract('Parameterizer', (accounts) => {
     it('should leave parameters unchanged if a proposal loses a challenge', async () => {
       const proposerStartingBalance = await token.balanceOf.call(proposer);
       const challengerStartingBalance = await token.balanceOf.call(challenger);
+      const pMinDeposit = await parameterizer.get.call('pMinDeposit');
 
       const receipt = await utils.as(proposer, parameterizer.proposeReparameterization, 'voteQuorum', '51');
 
       const { propID } = receipt.logs[0].args;
 
+      // challenge
       await utils.as(challenger, parameterizer.challengeReparameterization, propID);
-
       await utils.increaseTime(paramConfig.pCommitStageLength + paramConfig.pRevealStageLength + 1);
+      const pollID = (await parameterizer.proposals.call(propID))[1];
 
-      await parameterizer.processProposal(propID);
+      // resolve challenge
+      await utils.as(challenger, parameterizer.processProposal, propID);
 
-      const voteQuorum = await parameterizer.get('voteQuorum');
+      const voteQuorum = await parameterizer.get.call('voteQuorum');
       assert.strictEqual(voteQuorum.toString(10), '50', 'The proposal succeeded which ' +
         'should have been successfully challenged');
 
@@ -51,7 +54,13 @@ contract('Parameterizer', (accounts) => {
 
       // Edge case, challenger gets both deposits back because there were no voters
       const challengerFinalBalance = await token.balanceOf.call(challenger);
-      const challengerExpected = challengerStartingBalance.add(new BN(paramConfig.pMinDeposit, 10));
+
+      // calculate expected
+      const challengeReward = await parameterizer.challengeWinnerReward.call(pollID);
+      const newPMinDeposit = await parameterizer.get.call('pMinDeposit');
+      const challengerExpected = challengerStartingBalance.sub(pMinDeposit)
+        .add(challengeReward).add(newPMinDeposit.sub(pMinDeposit));
+
       assert.strictEqual(
         challengerFinalBalance.toString(10), challengerExpected.toString(10),
         'The challenge winner\'s token balance is not as expected',
@@ -61,6 +70,7 @@ contract('Parameterizer', (accounts) => {
     it('should set new parameters if a proposal wins a challenge', async () => {
       const proposerStartingBalance = await token.balanceOf.call(proposer);
       const challengerStartingBalance = await token.balanceOf.call(challenger);
+      const pMinDeposit = await parameterizer.get.call('pMinDeposit');
 
       const proposalReceipt = await utils.as(proposer, parameterizer.proposeReparameterization, 'voteQuorum', '51');
 
@@ -84,16 +94,19 @@ contract('Parameterizer', (accounts) => {
         'should have succeeded');
 
       const proposerFinalBalance = await token.balanceOf.call(proposer);
-      const winnings =
-        utils.multiplyByPercentage(paramConfig.pMinDeposit, paramConfig.pDispensationPct);
-      const proposerExpected = proposerStartingBalance.add(winnings);
+
+      const winnings = await parameterizer.challengeWinnerReward.call(challengeID);
+      const newPMinDeposit = await parameterizer.get.call('pMinDeposit');
+      const proposerExpected = proposerStartingBalance.sub(pMinDeposit).add(winnings)
+        .add(newPMinDeposit.sub(pMinDeposit));
+
       assert.strictEqual(
         proposerFinalBalance.toString(10), proposerExpected.toString(10),
         'The challenge winner\'s token balance is not as expected',
       );
 
       const challengerFinalBalance = await token.balanceOf.call(challenger);
-      const challengerExpected = challengerStartingBalance.sub(new BN(paramConfig.pMinDeposit, 10));
+      const challengerExpected = challengerStartingBalance.sub(pMinDeposit);
       assert.strictEqual(
         challengerFinalBalance.toString(10), challengerExpected.toString(10),
         'The challenge loser\'s token balance is not as expected',

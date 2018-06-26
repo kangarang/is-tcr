@@ -44,6 +44,7 @@ const utils = {
         paramConfig.voteQuorum,
         paramConfig.pVoteQuorum,
         paramConfig.inflationFactor,
+        paramConfig.pInflationFactor,
       ],
       'The TestChain Registry',
     );

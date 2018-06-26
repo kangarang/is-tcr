@@ -42,6 +42,7 @@ contract('RegistryFactory', (accounts) => {
         paramConfig.voteQuorum,
         paramConfig.pVoteQuorum,
         paramConfig.inflationFactor,
+        paramConfig.pInflationFactor,
       ];
       // new registry using factory/proxy
       const registryReceipt = await registryFactory.newRegistryBYOToken(

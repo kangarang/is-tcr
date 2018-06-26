@@ -42,6 +42,7 @@ contract('ParameterizerFactory', (accounts) => {
         paramConfig.voteQuorum,
         paramConfig.pVoteQuorum,
         paramConfig.inflationFactor,
+        paramConfig.pInflationFactor,
       ];
       const parameterizerReceipt = await parameterizerFactory
         .newParameterizerBYOToken(token.address, parameters);
