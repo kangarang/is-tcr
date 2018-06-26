@@ -7,8 +7,6 @@ const utils = require('../utils');
 const config = JSON.parse(fs.readFileSync('./conf/config.json'));
 const paramConfig = config.paramDefaults;
 
-const bigTen = number => new BN(number.toString(10), 10);
-
 contract('Parameterizer', (accounts) => {
   describe('Function: claimReward', () => {
     const [proposer, challenger, voterAlice, voterBob] = accounts;
@@ -54,10 +52,11 @@ contract('Parameterizer', (accounts) => {
       await utils.as(voterAlice, voting.withdrawVotingRights, '10');
 
       const voterAliceFinalBalance = await token.balanceOf.call(voterAlice);
-      const voterAliceExpected = voterAliceStartingBalance.add(utils.multiplyByPercentage(
-        paramConfig.pMinDeposit,
-        bigTen(100).sub(bigTen(paramConfig.pDispensationPct)),
-      ));
+
+      const voterReward = await parameterizer.voterReward.call(voterAlice, challengeID, '420');
+      const voterInflationReward = await parameterizer.voterInflationReward.call(voterAlice, challengeID, '420');
+      const voterAliceExpected = voterAliceStartingBalance.add(voterReward).add(voterInflationReward);
+
       assert.strictEqual(
         voterAliceFinalBalance.toString(10), voterAliceExpected.toString(10),
         'A voterAlice\'s token balance is not as expected after claiming a reward',
@@ -116,6 +115,7 @@ contract('Parameterizer', (accounts) => {
     it('should not transfer tokens for an unresolved challenge', async () => {
       const proposerStartingBalance = await token.balanceOf.call(proposer);
       const aliceStartingBalance = await token.balanceOf.call(voterAlice);
+      const pMinDeposit = await parameterizer.get.call('pMinDeposit');
 
       const proposalReceipt = await utils.as(proposer, parameterizer.proposeReparameterization, 'pMinDeposit', '5000');
 
@@ -140,14 +140,14 @@ contract('Parameterizer', (accounts) => {
       }
 
       const proposerEndingBalance = await token.balanceOf.call(proposer);
-      const proposerExpected = proposerStartingBalance.sub(bigTen(paramConfig.pMinDeposit));
-      const aliceEndingBalance = await token.balanceOf.call(voterAlice);
-      const aliceExpected = aliceStartingBalance.sub(bigTen(10));
-
+      const proposerExpected = proposerStartingBalance.sub(pMinDeposit);
       assert.strictEqual(
         proposerEndingBalance.toString(10), proposerExpected.toString(10),
         'proposers ending balance is incorrect',
       );
+
+      const aliceEndingBalance = await token.balanceOf.call(voterAlice);
+      const aliceExpected = aliceStartingBalance.sub('10');
       assert.strictEqual(
         aliceEndingBalance.toString(10), aliceExpected.toString(10),
         'alices ending balance is incorrect',
