@@ -54,7 +54,7 @@ contract Registry {
     PLCRVoting public voting;
     Parameterizer public parameterizer;
     string public name;
-    uint public totalNumCandidates;
+    uint public totalNumCandidates = 0;
 
     /**
     @dev Initializer. Can only be called once.
@@ -69,7 +69,6 @@ contract Registry {
         voting = PLCRVoting(_voting);
         parameterizer = Parameterizer(_parameterizer);
         name = _name;
-        totalNumCandidates = 0;
     }
 
     // --------------------

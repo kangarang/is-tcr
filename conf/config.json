@@ -12,7 +12,8 @@
     "pDispensationPct": 50,
     "voteQuorum": 50,
     "pVoteQuorum": 50,
-    "inflationFactor": 80
+    "inflationFactor": 16,
+    "pInflationFactor": 34
   },
   "name": "The TestChain Registry",
   "token": {

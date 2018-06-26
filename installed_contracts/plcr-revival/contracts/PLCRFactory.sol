@@ -47,6 +47,8 @@ contract PLCRFactory {
         // Create a new token and give all the tokens to the PLCR creator
         EIP621OraclizedToken token = new EIP621OraclizedToken(_supply, _name, _decimals, _symbol);
         require(token.transfer(msg.sender, _supply));
+        // changes p supply oracle -> ParameterizerFactory
+        require(token.changePSupplyOracle(msg.sender));
         // change supply oracle -> ParameterizerFactory
         require(token.changeSupplyOracle(msg.sender));
 

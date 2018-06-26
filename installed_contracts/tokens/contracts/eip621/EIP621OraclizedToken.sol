@@ -6,9 +6,10 @@ import "./EIP621Token.sol";
 contract EIP621OraclizedToken is EIP621Token {
 
     address public supplyOracle;
+    address public pSupplyOracle;
 
     modifier onlySupplyOracle {
-        require(msg.sender == supplyOracle);
+        require(msg.sender == supplyOracle || msg.sender == pSupplyOracle);
         _;
     }
 
@@ -23,7 +24,16 @@ contract EIP621OraclizedToken is EIP621Token {
         _decimalUnits,
         _tokenSymbol
     ) {
-        supplyOracle = msg.sender; 
+        supplyOracle = msg.sender;
+        pSupplyOracle = msg.sender;
+    }
+
+    function changePSupplyOracle(address _pNewOracle) public onlySupplyOracle returns (bool success) {
+        require(pSupplyOracle != _pNewOracle);
+        pSupplyOracle = _pNewOracle;
+
+        emit PSupplyOracleChanged(msg.sender, _pNewOracle);
+        return true;
     }
 
     function changeSupplyOracle(address _newOracle) public onlySupplyOracle returns (bool success) {
@@ -51,4 +61,5 @@ contract EIP621OraclizedToken is EIP621Token {
     }
 
     event SupplyOracleChanged(address oldOracle, address newOracle);
+    event PSupplyOracleChanged(address oldOracle, address newOracle);
 }

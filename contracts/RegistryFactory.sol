@@ -28,7 +28,7 @@ contract RegistryFactory {
     */
     function newRegistryBYOToken(
         EIP621OraclizedToken _token,
-        uint[13] _parameters,
+        uint[14] _parameters,
         string _name
     ) public returns (Registry) {
         // Deploy & initialize new PLCRVoting & Parameterizer proxy contracts
@@ -56,7 +56,7 @@ contract RegistryFactory {
         string _tokenName,
         uint8 _decimals,
         string _symbol,
-        uint[13] _parameters,
+        uint[14] _parameters,
         string _registryName
     ) public returns (Registry) {
         // Creates a new EIP621OraclizedToken token
@@ -66,6 +66,8 @@ contract RegistryFactory {
         EIP621OraclizedToken token = EIP621OraclizedToken(parameterizer.token());
         // transfer tokens -> creator
         require(token.transfer(msg.sender, _supply));
+        // changes p supply oracle -> Parameterizer
+        require(token.changePSupplyOracle(parameterizer));
 
         // Create & initialize a new Registry proxy contract
         Registry registry = Registry(proxyFactory.createProxy(canonizedRegistry, ""));

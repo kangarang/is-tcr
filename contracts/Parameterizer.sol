@@ -18,6 +18,10 @@ contract Parameterizer {
     event _ChallengeFailed(bytes32 indexed propID, uint indexed challengeID, uint rewardPool, uint totalWinningTokens);
     event _RewardClaimed(uint indexed challengeID, uint reward, address indexed voter);
     event _MinDepositSet(uint minDeposit, uint oldMinDeposit);
+    event _PMinDepositSet(uint pMinDeposit, uint oldPMinDeposit);
+    event _TokenSupplyIncreased(uint amount, address to, uint newTotalSupply);
+    event DEBUG(string name, uint value);
+    event DEBUG_ADDR(string name, address value);
 
 
     // ------
@@ -41,8 +45,11 @@ contract Parameterizer {
         address challenger;     // owner of Challenge
         bool resolved;          // indication of if challenge is resolved
         uint stake;             // number of tokens at risk for either party during challenge
-        uint winningTokens;     // (remaining) amount of tokens used for voting by the winning side
+        uint totalWinningTokens;     // amount of tokens used for voting by the winning side
         mapping(address => bool) tokenClaims;
+        uint majorityBlocInflation;
+        uint inflationFactor;
+        uint tokenSupply;
     }
 
     // ------
@@ -63,7 +70,7 @@ contract Parameterizer {
     uint public PROCESSBY = 604800; // 7 days
 
     modifier onlySupplyOracle {
-        require(msg.sender == token.supplyOracle());
+        require(msg.sender == token.supplyOracle() || msg.sender == token.pSupplyOracle());
         _;
     }
 
@@ -76,7 +83,7 @@ contract Parameterizer {
     function init(
         address _token,
         address _plcr,
-        uint[13] _parameters
+        uint[14] _parameters
     ) public {
         require(_token != 0 && address(token) == 0);
         require(_plcr != 0 && address(voting) == 0);
@@ -122,6 +129,9 @@ contract Parameterizer {
 
         // inflation multiplier, determines the majority_bloc inflation reward
         set("inflationFactor", _parameters[12]);  
+
+        // reparameterization inflation multiplier, determines the majority_bloc inflation reward
+        set("pInflationFactor", _parameters[13]);  
     }
 
     // TODO: supplyOracle -> transfer to/from registry if minDeposit manually set
@@ -129,7 +139,6 @@ contract Parameterizer {
         uint minDeposit = get("minDeposit");
 
         // set the new minDeposit proportional to the inflated totalSupply
-        // minDeposit|totalSupply  :  newMinDeposit|newTotalSupply
         // minDeposit * (totalSupply + majorityBlocInflation) / totalSupply
         uint newMinDeposit = minDeposit.mul(_tokenSupply.add(_majorityBlocInflation)).div(_tokenSupply);
         // (10 * (8000 + 2400)) / 8000 -> 13
@@ -138,6 +147,15 @@ contract Parameterizer {
         set("minDeposit", newMinDeposit);
         emit _MinDepositSet(newMinDeposit, minDeposit);
         return newMinDeposit.sub(minDeposit);
+    }
+
+    function setPMinDeposit(uint _majorityBlocInflation, uint _tokenSupply) public onlySupplyOracle returns (uint) {
+        uint pMinDeposit = get("pMinDeposit");
+        uint pNewMinDeposit = pMinDeposit.mul(_tokenSupply.add(_majorityBlocInflation)).div(_tokenSupply);
+
+        set("pMinDeposit", pNewMinDeposit);
+        emit _PMinDepositSet(pNewMinDeposit, pMinDeposit);
+        return pNewMinDeposit.sub(pMinDeposit);
     }
 
     // -----------------------
@@ -203,16 +221,17 @@ contract Parameterizer {
             rewardPool: SafeMath.sub(100, get("pDispensationPct")).mul(deposit).div(100),
             stake: deposit,
             resolved: false,
-            winningTokens: 0
+            totalWinningTokens: 0,
+            majorityBlocInflation: 0,
+            inflationFactor: get("pInflationFactor"),
+            tokenSupply: token.totalSupply()
         });
 
         proposals[_propID].challengeID = pollID;       // update listing to store most recent challenge
+        var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
 
         //take tokens from challenger
         require(token.transferFrom(msg.sender, this, deposit));
-
-        var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
-
         emit _NewChallenge(_propID, pollID, commitEndDate, revealEndDate, msg.sender);
         return pollID;
     }
@@ -226,12 +245,9 @@ contract Parameterizer {
         address propOwner = prop.owner;
         uint propDeposit = prop.deposit;
 
-        // - Whenever the minDeposit parameter goes up, the token supply is inflated by the same factor as that increase,
-
         // Before any token transfers, deleting the proposal will ensure that if reentrancy occurs the
         // prop.owner and prop.deposit will be 0, thereby preventing theft
         if (canBeSet(_propID)) {
-        // if (canBeSet(_propID) && keccak256(prop.name) != keccak256("minDeposit")) {
             // There is no challenge against the proposal. The processBy date for the proposal has not
             // passed, but the proposal's appExpirty date has passed.
             set(prop.name, prop.value);
@@ -239,7 +255,6 @@ contract Parameterizer {
             delete proposals[_propID];
             require(token.transfer(propOwner, propDeposit));
         } else if (challengeCanBeResolved(_propID)) {
-        // } else if (challengeCanBeResolved(_propID) && keccak256(prop.name) != keccak256("minDeposit")) {
             // There is a challenge against the proposal.
             resolveChallenge(_propID);
         } else if (now > prop.processBy) {
@@ -275,19 +290,17 @@ contract Parameterizer {
         require(challenges[_challengeID].tokenClaims[msg.sender] == false);
         require(challenges[_challengeID].resolved == true);
 
-        uint voterTokens = voting.getNumPassingTokens(msg.sender, _challengeID, _salt);
-        uint reward = voterReward(msg.sender, _challengeID, _salt);
-
-        // subtract voter's information to preserve the participation ratios of other voters
-        // compared to the remaining pool of rewards
-        challenges[_challengeID].winningTokens -= voterTokens;
-        challenges[_challengeID].rewardPool -= reward;
+        // calculate user's portion of challenge reward (% of rewardPool)
+        uint voterChallengeReward = voterReward(msg.sender, _challengeID, _salt);
+        // calculate user's portion of inflation reward (% of majorityBlocInflation)
+        uint inflationReward = voterInflationReward(msg.sender, _challengeID, _salt);
 
         // ensures a voter cannot claim tokens again
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 
-        emit _RewardClaimed(_challengeID, reward, msg.sender);
-        require(token.transfer(msg.sender, reward));
+        // transfer the sum of both rewards
+        require(token.transfer(msg.sender, voterChallengeReward.add(inflationReward)));
+        emit _RewardClaimed(_challengeID, voterChallengeReward.add(inflationReward), msg.sender);
     }
 
     // --------
@@ -301,12 +314,25 @@ contract Parameterizer {
     @param _salt        The salt of the voter's commit hash in the given poll
     @return             The uint indicating the voter's reward
     */
-    function voterReward(address _voter, uint _challengeID, uint _salt)
-    public view returns (uint) {
-        uint winningTokens = challenges[_challengeID].winningTokens;
+    function voterReward(address _voter, uint _challengeID, uint _salt) public view returns (uint) {
+        uint totalWinningTokens = challenges[_challengeID].totalWinningTokens;
         uint rewardPool = challenges[_challengeID].rewardPool;
         uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);
-        return (voterTokens * rewardPool) / winningTokens;
+        return (voterTokens * rewardPool) / totalWinningTokens;
+    }
+
+    /**
+    @dev                Calculates the provided voter's inflation reward for the given poll.
+    @param _voter       The address of the voter whose inflation reward is to be returned
+    @param _challengeID The pollID of the challenge an inflation reward is being queried for
+    @param _salt        The salt of the voter's commit hash in the given poll
+    @return             The uint indicating the voter's inflation reward
+    */
+    function voterInflationReward(address _voter, uint _challengeID, uint _salt) public view returns (uint) {
+        uint totalWinningTokens = challenges[_challengeID].totalWinningTokens;
+        uint majorityBlocInflation = challenges[_challengeID].majorityBlocInflation;
+        uint voterTokens = voting.getNumPassingTokens(_voter, _challengeID, _salt);
+        return voterTokens.mul(majorityBlocInflation).div(totalWinningTokens);
     }
 
     /**
@@ -343,12 +369,18 @@ contract Parameterizer {
     @param _challengeID The challengeID to determine a reward for
     */
     function challengeWinnerReward(uint _challengeID) public view returns (uint) {
-        if(voting.getTotalNumberOfTokensForWinningOption(_challengeID) == 0) {
-            // Edge case, nobody voted, give all tokens to the challenger.
-            return 2 * challenges[_challengeID].stake;
+        // Edge case, nobody voted, give all tokens to the challenger.
+        if (voting.getTotalNumberOfTokensForWinningOption(_challengeID) == 0) {
+            return challenges[_challengeID].stake.mul(2);
         }
 
-        return (2 * challenges[_challengeID].stake) - challenges[_challengeID].rewardPool;
+        // case: applicant won
+        if (voting.isPassed(_challengeID)) {
+            return challenges[_challengeID].stake.sub(challenges[_challengeID].rewardPool);
+        }
+
+        // case: challenger won
+        return (challenges[_challengeID].stake.mul(2)).sub(challenges[_challengeID].rewardPool);
     }
 
     /**
@@ -368,6 +400,18 @@ contract Parameterizer {
         return challenges[_challengeID].tokenClaims[_voter];
     }
 
+    /**
+    @dev                        Getter for majority bloc inflation reward
+    @param _challengeID         The poll ID to query
+    @param _totalWinningTokens  The total number of tokens voted by the majority bloc voters
+    */
+    function getMajorityBlocInflation(uint _challengeID, uint _totalWinningTokens) public view returns (uint) {
+        // unmodulated amount: totalSupply - winningTokens
+        uint unmodulatedTokensToMint = challenges[_challengeID].tokenSupply.sub(_totalWinningTokens);
+        // modulated: inflation factor percentage of raw amount
+        return challenges[_challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);
+    }
+
     // ----------------
     // PRIVATE FUNCTIONS
     // ----------------
@@ -383,19 +427,38 @@ contract Parameterizer {
         // winner gets back their full staked deposit, and dispensationPct*loser's stake
         uint reward = challengeWinnerReward(prop.challengeID);
 
-        challenge.winningTokens = voting.getTotalNumberOfTokensForWinningOption(prop.challengeID);
+        challenge.totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(prop.challengeID);
+        emit DEBUG("challenge.totalWinningTokens", challenge.totalWinningTokens);
         challenge.resolved = true;
 
+        // calculate the inflation reward that is reserved for majority bloc voters
+        uint majorityBlocInflation = getMajorityBlocInflation(prop.challengeID, challenge.totalWinningTokens);
+        // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
+        challenge.majorityBlocInflation = majorityBlocInflation;
+        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
+
+        uint pMinDepositInflation = 0;
+        if (majorityBlocInflation > 0) {
+            // set the new pMinDeposit proportional to the inflation
+            pMinDepositInflation = this.setPMinDeposit(majorityBlocInflation, challenge.tokenSupply);
+            emit DEBUG("pMinDepositInflation", pMinDepositInflation);
+
+            // use the pMinDepositInflation to calculate additional inflation, withdrawable by candidates
+            // inflate token supply for winner-voters + all candidates -- to keep up with the token's inflating supply
+            require(token.increaseSupply(majorityBlocInflation.add(pMinDepositInflation), this));
+            emit _TokenSupplyIncreased(majorityBlocInflation.add(pMinDepositInflation), this, token.totalSupply());
+        }
+
         if (voting.isPassed(prop.challengeID)) { // The challenge failed
-            if(prop.processBy > now) {
+            if (prop.processBy > now) {
                 set(prop.name, prop.value);
             }
-            emit _ChallengeFailed(_propID, prop.challengeID, challenge.rewardPool, challenge.winningTokens);
-            require(token.transfer(prop.owner, reward));
+            require(token.transfer(prop.owner, reward.add(pMinDepositInflation)));
+            emit _ChallengeFailed(_propID, prop.challengeID, challenge.rewardPool, challenge.totalWinningTokens);
         }
         else { // The challenge succeeded or nobody voted
-            emit _ChallengeSucceeded(_propID, prop.challengeID, challenge.rewardPool, challenge.winningTokens);
-            require(token.transfer(challenges[prop.challengeID].challenger, reward));
+            require(token.transfer(challenge.challenger, reward.add(pMinDepositInflation)));
+            emit _ChallengeSucceeded(_propID, prop.challengeID, challenge.rewardPool, challenge.totalWinningTokens);
         }
     }
 

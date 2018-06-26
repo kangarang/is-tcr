@@ -29,7 +29,7 @@ contract ParameterizerFactory {
     */
     function newParameterizerBYOToken(
         EIP621OraclizedToken _token,
-        uint[13] _parameters
+        uint[14] _parameters
     ) public returns (Parameterizer) {
         // Deploy & initialize a new PLCRVoting proxy contract
         PLCRVoting plcr = plcrFactory.newPLCRBYOToken(_token);
@@ -59,7 +59,7 @@ contract ParameterizerFactory {
         string _name,
         uint8 _decimals,
         string _symbol,
-        uint[13] _parameters
+        uint[14] _parameters
     ) public returns (Parameterizer) {
         // Creates a new EIP621OraclizedToken token
         // Deploys & initializes a new PLCRVoting proxy contract
@@ -69,6 +69,8 @@ contract ParameterizerFactory {
         require(token.transfer(msg.sender, _supply));
         // changes supply oracle -> RegistryFactory
         require(token.changeSupplyOracle(msg.sender));
+        // changes p supply oracle -> RegistryFactory
+        require(token.changePSupplyOracle(msg.sender));
 
         // Create & initialize a new Parameterizer proxy contract
         Parameterizer parameterizer = Parameterizer(proxyFactory.createProxy(canonizedParameterizer, ""));
