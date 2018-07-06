@@ -142,7 +142,7 @@ contract Parameterizer {
         // minDeposit * (totalSupply + majorityBlocInflation) / totalSupply
         uint newMinDeposit = minDeposit.mul(_tokenSupply.add(_majorityBlocInflation)).div(_tokenSupply);
         // (10 * (8000 + 2400)) / 8000 -> 13
-        // note: assert correct ratios?
+        // TODO: assert correct ratios
 
         set("minDeposit", newMinDeposit);
         emit _MinDepositSet(newMinDeposit, minDeposit);
@@ -169,10 +169,10 @@ contract Parameterizer {
     */
     function proposeReparameterization(string _name, uint _value) public returns (bytes32) {
         uint deposit = get("pMinDeposit");
-        bytes32 propID = keccak256(_name, _value);
+        bytes32 propID = keccak256(abi.encodePacked(_name, _value));
 
-        if (keccak256(_name) == keccak256("dispensationPct") ||
-            keccak256(_name) == keccak256("pDispensationPct")) {
+        if (keccak256(abi.encodePacked(_name)) == keccak256("dispensationPct") ||
+            keccak256(abi.encodePacked(_name)) == keccak256("pDispensationPct")) {
             require(_value <= 100);
         }
 
@@ -228,7 +228,7 @@ contract Parameterizer {
         });
 
         proposals[_propID].challengeID = pollID;       // update listing to store most recent challenge
-        var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
+        (uint commitEndDate, uint revealEndDate,,,) = voting.pollMap(pollID);
 
         //take tokens from challenger
         require(token.transferFrom(msg.sender, this, deposit));
@@ -291,7 +291,7 @@ contract Parameterizer {
         require(challenges[_challengeID].resolved == true);
 
         // calculate user's portion of challenge reward (% of rewardPool)
-        uint voterChallengeReward = voterReward(msg.sender, _challengeID, _salt);
+        uint challengeReward = voterReward(msg.sender, _challengeID, _salt);
         // calculate user's portion of inflation reward (% of majorityBlocInflation)
         uint inflationReward = voterInflationReward(msg.sender, _challengeID, _salt);
 
@@ -299,8 +299,8 @@ contract Parameterizer {
         challenges[_challengeID].tokenClaims[msg.sender] = true;
 
         // transfer the sum of both rewards
-        require(token.transfer(msg.sender, voterChallengeReward.add(inflationReward)));
-        emit _RewardClaimed(_challengeID, voterChallengeReward.add(inflationReward), msg.sender);
+        require(token.transfer(msg.sender, challengeReward.add(inflationReward)));
+        emit _RewardClaimed(_challengeID, challengeReward.add(inflationReward), msg.sender);
     }
 
     // --------
@@ -388,7 +388,7 @@ contract Parameterizer {
     @param _name the key whose value is to be determined
     */
     function get(string _name) public view returns (uint value) {
-        return params[keccak256(_name)];
+        return params[keccak256(abi.encodePacked(_name))];
     }
 
     /**
@@ -427,9 +427,10 @@ contract Parameterizer {
         // winner gets back their full staked deposit, and dispensationPct*loser's stake
         uint reward = challengeWinnerReward(prop.challengeID);
 
+        challenge.resolved = true;
+
         challenge.totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(prop.challengeID);
         emit DEBUG("challenge.totalWinningTokens", challenge.totalWinningTokens);
-        challenge.resolved = true;
 
         // calculate the inflation reward that is reserved for majority bloc voters
         uint majorityBlocInflation = getMajorityBlocInflation(prop.challengeID, challenge.totalWinningTokens);
@@ -449,6 +450,11 @@ contract Parameterizer {
             emit _TokenSupplyIncreased(majorityBlocInflation.add(pMinDepositInflation), this, token.totalSupply());
         }
 
+        // TODO: why is this different?
+        // previously, if the applicant won, we transfer the reward directly. same with the challenger
+        // then, we increase the supply by the majorityBlocInflation + (minDepositInflation * numCandidates)
+
+        // now, we first increase the supply by majorityBlocInflation + minDepositInflation. no numCandidates involved because winners should get that amount immediately
         if (voting.isPassed(prop.challengeID)) { // The challenge failed
             if (prop.processBy > now) {
                 set(prop.name, prop.value);
@@ -463,12 +469,12 @@ contract Parameterizer {
     }
 
     /**
-    @dev sets the param keted by the provided name to the provided value
+    @dev sets the param keyed by the provided name to the provided value
     @param _name the name of the param to be set
     @param _value the value to set the param to be set
     */
     function set(string _name, uint _value) private {
-        params[keccak256(_name)] = _value;
+        params[keccak256(abi.encodePacked(_name))] = _value;
     }
 }
 

@@ -5,24 +5,23 @@ import "./EIP621AbstractToken.sol";
 
 contract EIP621Token is EIP621AbstractToken {
 
-    function EIP621Token(
+    constructor(
         uint256 _initialAmount,
         string _tokenName,
         uint8 _decimalUnits,
         string _tokenSymbol
-    ) EIP20 (
+    ) EIP20(
         _initialAmount,
         _tokenName,
         _decimalUnits,
         _tokenSymbol
-    ) 
-    {}
+    ) public {}
 
     function increaseSupply(uint value, address to) public returns (bool success) {
         totalSupply = safeAdd(totalSupply, value);
         balances[to] = safeAdd(balances[to], value);
 
-        Transfer(0, to, value);
+        emit Transfer(0, to, value);
         return true;
     }
 
@@ -35,7 +34,7 @@ contract EIP621Token is EIP621AbstractToken {
         balances[from] = safeSub(balances[from], value);
         totalSupply = safeSub(totalSupply, value);
 
-        Transfer(from, 0, value);
+        emit Transfer(from, 0, value);
         return true;
     }
 

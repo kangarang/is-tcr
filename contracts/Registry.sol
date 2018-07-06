@@ -168,7 +168,7 @@ contract Registry {
         // Take tokens from challenger
         require(token.transferFrom(msg.sender, this, minDeposit));
 
-        var (commitEndDate, revealEndDate,) = voting.pollMap(pollID);
+        (uint commitEndDate, uint revealEndDate,,,) = voting.pollMap(pollID);
         emit _Challenge(_listingHash, pollID, _data, commitEndDate, revealEndDate, msg.sender);
         return pollID;
     }
@@ -320,6 +320,7 @@ contract Registry {
             return challenges[_challengeID].stake.mul(2);
         }
 
+        // TODO: comment why this is necessary
         // case: applicant won
         if (voting.isPassed(_challengeID)) {
             return challenges[_challengeID].stake.sub(challenges[_challengeID].rewardPool);
@@ -345,6 +346,10 @@ contract Registry {
     */
     function getMajorityBlocInflation(uint _challengeID, uint _totalWinningTokens) public view returns (uint) {
         // unmodulated amount: totalSupply - winningTokens
+        // 400 = 1000 - 600
+        // TODO: rename or comment. e.g. unrevealed? + losers? instead of totalWinningTokens, use totalTokens (votesFor + votesAgainst)
+        // TODO: calc unmodulated based on totalTokensRevealed.
+        // then, reward based on user's revealed in majorityBloc
         uint unmodulatedTokensToMint = challenges[_challengeID].tokenSupply.sub(_totalWinningTokens);
         // modulated: inflation factor percentage of raw amount
         return challenges[_challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);

@@ -211,7 +211,7 @@ contract PLCRVoting {
         require(revealPeriodActive(_pollID));
         require(pollMap[_pollID].didCommit[msg.sender]);                         // make sure user has committed a vote for this poll
         require(!pollMap[_pollID].didReveal[msg.sender]);                        // prevent user from revealing multiple times
-        require(keccak256(_voteOption, _salt) == getCommitHash(msg.sender, _pollID)); // compare resultant hash from inputs to original commitHash
+        require(keccak256(abi.encodePacked(_voteOption, _salt)) == getCommitHash(msg.sender, _pollID)); // compare resultant hash from inputs to original commitHash
 
         uint numTokens = getNumTokens(msg.sender, _pollID);
 
@@ -254,7 +254,7 @@ contract PLCRVoting {
         require(pollMap[_pollID].didReveal[_voter]);
 
         uint winningChoice = isPassed(_pollID) ? 1 : 0;
-        bytes32 winnerHash = keccak256(winningChoice, _salt);
+        bytes32 winnerHash = keccak256(abi.encodePacked(winningChoice, _salt));
         bytes32 commitHash = getCommitHash(_voter, _pollID);
 
         require(winnerHash == commitHash);
@@ -440,29 +440,29 @@ contract PLCRVoting {
     @return the node which the propoded node should be inserted after
     */
     function getInsertPointForNumTokens(address _voter, uint _numTokens, uint _pollID)
-    constant public returns (uint prevNode) {
-      // Get the last node in the list and the number of tokens in that node
-      uint nodeID = getLastNode(_voter);
-      uint tokensInNode = getNumTokens(_voter, nodeID);
+    public view returns (uint prevNode) {
+        // Get the last node in the list and the number of tokens in that node
+        uint nodeID = getLastNode(_voter);
+        uint tokensInNode = getNumTokens(_voter, nodeID);
 
-      // Iterate backwards through the list until reaching the root node
-      while(nodeID != 0) {
-        // Get the number of tokens in the current node
-        tokensInNode = getNumTokens(_voter, nodeID);
-        if(tokensInNode <= _numTokens) { // We found the insert point!
-          if(nodeID == _pollID) {
-            // This is an in-place update. Return the prev node of the node being updated
+        // Iterate backwards through the list until reaching the root node
+        while(nodeID != 0) {
+            // Get the number of tokens in the current node
+            tokensInNode = getNumTokens(_voter, nodeID);
+            if (tokensInNode <= _numTokens) { // We found the insert point!
+                if (nodeID == _pollID) {
+                    // This is an in-place update. Return the prev node of the node being updated
+                    nodeID = dllMap[_voter].getPrev(nodeID);
+                }
+                // Return the insert point
+                return nodeID; 
+            }
+            // We did not find the insert point. Continue iterating backwards through the list
             nodeID = dllMap[_voter].getPrev(nodeID);
-          }
-          // Return the insert point
-          return nodeID; 
         }
-        // We did not find the insert point. Continue iterating backwards through the list
-        nodeID = dllMap[_voter].getPrev(nodeID);
-      }
 
-      // The list is empty, or a smaller value than anything else in the list is being inserted
-      return nodeID;
+        // The list is empty, or a smaller value than anything else in the list is being inserted
+        return nodeID;
     }
 
     // ----------------
@@ -474,7 +474,7 @@ contract PLCRVoting {
     @param _terminationDate Integer timestamp of date to compare current timestamp with
     @return expired Boolean indication of whether the terminationDate has passed
     */
-    function isExpired(uint _terminationDate) constant public returns (bool expired) {
+    function isExpired(uint _terminationDate) public view returns (bool expired) {
         return (block.timestamp > _terminationDate);
     }
 
@@ -484,6 +484,6 @@ contract PLCRVoting {
     @return UUID Hash which is deterministic from _user and _pollID
     */
     function attrUUID(address _user, uint _pollID) public pure returns (bytes32 UUID) {
-        return keccak256(_user, _pollID);
+        return keccak256(abi.encodePacked(_user, _pollID));
     }
 }

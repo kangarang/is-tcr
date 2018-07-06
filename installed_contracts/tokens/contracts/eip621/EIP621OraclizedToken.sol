@@ -13,7 +13,7 @@ contract EIP621OraclizedToken is EIP621Token {
         _;
     }
 
-    function EIP621OraclizedToken(
+    constructor(
         uint256 _initialAmount,
         string _tokenName,
         uint8 _decimalUnits,
@@ -48,7 +48,7 @@ contract EIP621OraclizedToken is EIP621Token {
         totalSupply = safeAdd(totalSupply, value);
         balances[to] = safeAdd(balances[to], value);
 
-        Transfer(0, to, value);
+        emit Transfer(0, to, value);
         return true;
     }
 
@@ -56,7 +56,7 @@ contract EIP621OraclizedToken is EIP621Token {
         balances[from] = safeSub(balances[from], value);
         totalSupply = safeSub(totalSupply, value);
 
-        Transfer(from, 0, value);
+        emit Transfer(from, 0, value);
         return true;
     }
 
