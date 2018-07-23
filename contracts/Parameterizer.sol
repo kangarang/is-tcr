@@ -20,9 +20,6 @@ contract Parameterizer {
     event _MinDepositSet(uint minDeposit, uint oldMinDeposit);
     event _PMinDepositSet(uint pMinDeposit, uint oldPMinDeposit);
     event _TokenSupplyIncreased(uint amount, address to, uint newTotalSupply);
-    event DEBUG(string name, uint value);
-    event DEBUG_ADDR(string name, address value);
-
 
     // ------
     // DATA STRUCTURES
@@ -428,21 +425,17 @@ contract Parameterizer {
         uint reward = challengeWinnerReward(prop.challengeID);
 
         challenge.resolved = true;
-
         challenge.totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(prop.challengeID);
-        emit DEBUG("challenge.totalWinningTokens", challenge.totalWinningTokens);
 
         // calculate the inflation reward that is reserved for majority bloc voters
         uint majorityBlocInflation = getMajorityBlocInflation(prop.challengeID, challenge.totalWinningTokens);
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenge.majorityBlocInflation = majorityBlocInflation;
-        emit DEBUG("majorityBlocInflation", majorityBlocInflation);
 
         uint pMinDepositInflation = 0;
         if (majorityBlocInflation > 0) {
             // set the new pMinDeposit proportional to the inflation
             pMinDepositInflation = this.setPMinDeposit(majorityBlocInflation, challenge.tokenSupply);
-            emit DEBUG("pMinDepositInflation", pMinDepositInflation);
 
             // use the pMinDepositInflation to calculate additional inflation, withdrawable by candidates
             // inflate token supply for winner-voters + all candidates -- to keep up with the token's inflating supply
