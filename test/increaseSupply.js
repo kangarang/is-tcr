@@ -89,7 +89,7 @@ contract('Token/Registry', (accounts) => {
       await utils.as(applicant, registry.updateStatus, listing);
 
       // calculate expected values
-      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '1000');
+      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '1800');
       const totalNumCandidates = await registry.totalNumCandidates.call();
       const newMinDeposit = await parameterizer.get('minDeposit');
       const minDepositInflation = newMinDeposit.sub(initialMinDeposit);
@@ -157,7 +157,7 @@ contract('Token/Registry', (accounts) => {
       );
 
       // check the registry's balance
-      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '1000');
+      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '1800');
       const totalNumCandidates = await registry.totalNumCandidates.call();
       const newMinDeposit = await parameterizer.get('minDeposit');
       const minDepositInflation = newMinDeposit.sub(minDeposit);
@@ -215,7 +215,7 @@ contract('Token/Registry', (accounts) => {
       );
 
       // check the registry's balance
-      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '900');
+      const majorityBlocInflation = await registry.getMajorityBlocInflation.call(pollID, '1700');
       const totalNumCandidates = await registry.totalNumCandidates.call();
       const newMinDeposit = await parameterizer.get('minDeposit');
       const minDepositInflation = newMinDeposit.sub(minDeposit);

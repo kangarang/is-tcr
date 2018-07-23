@@ -432,6 +432,13 @@ contract Parameterizer {
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenge.majorityBlocInflation = majorityBlocInflation;
 
+        // Why is this written in a different order than how it's written in Registry?
+        // proposals are transient (no whitelist)
+        // thus, Parameterizer doesn't use numCandidates
+        // since the winnings of a challenge should not be diluted
+        // we need the value of pMinDepositInflation so that we can transfer that to the winner
+        // thus, we must first increase the supply
+
         uint pMinDepositInflation = 0;
         if (majorityBlocInflation > 0) {
             // set the new pMinDeposit proportional to the inflation
@@ -443,11 +450,6 @@ contract Parameterizer {
             emit _TokenSupplyIncreased(majorityBlocInflation.add(pMinDepositInflation), this, token.totalSupply());
         }
 
-        // TODO: why is this different?
-        // previously, if the applicant won, we transfer the reward directly. same with the challenger
-        // then, we increase the supply by the majorityBlocInflation + (minDepositInflation * numCandidates)
-
-        // now, we first increase the supply by majorityBlocInflation + minDepositInflation. no numCandidates involved because winners should get that amount immediately
         if (voting.isPassed(prop.challengeID)) { // The challenge failed
             if (prop.processBy > now) {
                 set(prop.name, prop.value);

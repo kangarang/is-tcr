@@ -321,6 +321,15 @@ contract PLCRVoting {
     }
 
     /**
+    @dev Gets the total winning votes for reward distribution purposes
+    @param _pollID Integer identifier associated with target poll
+    @return Total number of votes revealed for specified poll
+    */
+    function getTotalNumberOfTokens(uint _pollID) constant public returns (uint numTokens) {
+        return (pollMap[_pollID].votesFor + pollMap[_pollID].votesAgainst);
+    }
+
+    /**
     @notice Determines if poll is over
     @dev Checks isExpired for specified poll's revealEndDate
     @return Boolean indication of whether polling period is over

@@ -32,15 +32,15 @@ contract Registry {
     }
 
     struct Challenge {
-        uint rewardPool;        // (remaining) Pool of tokens to be distributed to winning voters (applicant/challenger -> voters)
-        address challenger;     // Owner of Challenge
-        bool resolved;          // Indication of if challenge is resolved
-        uint totalWinningTokens;       // (remaining) Number of tokens used in voting by the winning side
-        mapping(address => bool) tokenClaims; // Indicates whether a voter has claimed a reward yet
-        uint majorityBlocInflation;
-        uint inflationFactor;
-        uint tokenSupply;
-        uint stake;
+        uint rewardPool;            // (remaining) Pool of tokens to be distributed to winning voters (applicant/challenger -> voters)
+        address challenger;         // Owner of Challenge
+        bool resolved;              // Indication of if challenge is resolved
+        uint totalWinningTokens;    // (remaining) Number of tokens used in voting by the winning side
+        mapping(address => bool) tokenClaims;   // Indicates whether a voter has claimed a reward yet
+        uint majorityBlocInflation; // Number of tokens increased during challenge resolution
+        uint inflationFactor;       // Inflation multiplier at time of challenge
+        uint tokenSupply;           // Token supply at time of challenge
+        uint stake;                 // Minimum deposit at time of challenge
     }
 
     // Maps challengeIDs to associated challenge data
@@ -320,7 +320,7 @@ contract Registry {
             return challenges[_challengeID].stake.mul(2);
         }
 
-        // TODO: comment why this is necessary
+        // because itcr does not use unstakedDeposits, instead of adding the reward to the listing for withdrawal, transfer upon resolution
         // case: applicant won
         if (voting.isPassed(_challengeID)) {
             return challenges[_challengeID].stake.sub(challenges[_challengeID].rewardPool);
@@ -342,17 +342,13 @@ contract Registry {
     /**
     @dev                        Getter for majority bloc inflation reward
     @param _challengeID         The poll ID to query
-    @param _totalWinningTokens  The total number of tokens voted by the majority bloc voters
+    @param _revealedTokens      The total number of tokens revealed by voters
     */
-    function getMajorityBlocInflation(uint _challengeID, uint _totalWinningTokens) public view returns (uint) {
-        // unmodulated amount: totalSupply - winningTokens
-        // 400 = 1000 - 600
-        // TODO: rename or comment. e.g. unrevealed? + losers? instead of totalWinningTokens, use totalTokens (votesFor + votesAgainst)
-        // TODO: calc unmodulated based on totalTokensRevealed.
-        // then, reward based on user's revealed in majorityBloc
-        uint unmodulatedTokensToMint = challenges[_challengeID].tokenSupply.sub(_totalWinningTokens);
-        // modulated: inflation factor percentage of raw amount
-        return challenges[_challengeID].inflationFactor.mul(unmodulatedTokensToMint).div(100);
+    function getMajorityBlocInflation(uint _challengeID, uint _revealedTokens) public view returns (uint) {
+        // unmodulated: totalSupply - revealedTokens
+        uint unrevealedTokens = challenges[_challengeID].tokenSupply.sub(_revealedTokens);
+        // modulated: inflation factor percentage of unmodulated amount
+        return challenges[_challengeID].inflationFactor.mul(unrevealedTokens).div(100);
     }
 
     // ----------------
@@ -379,14 +375,16 @@ contract Registry {
         uint totalWinningTokens = voting.getTotalNumberOfTokensForWinningOption(challengeID);
         challenges[challengeID].totalWinningTokens = totalWinningTokens;
 
+        uint totalRevealedTokens = voting.getTotalNumberOfTokens(challengeID);
         // calculate the inflation reward that is reserved for majority bloc voters
-        uint majorityBlocInflation = getMajorityBlocInflation(challengeID, totalWinningTokens);
+        uint majorityBlocInflation = getMajorityBlocInflation(challengeID, totalRevealedTokens);
         // during claimReward, voters will receive a token-weighted share of the minted inflation tokens
         challenges[challengeID].majorityBlocInflation = majorityBlocInflation;
 
         // Case: challenge failed
         if (voting.isPassed(challengeID)) {
             whitelistApplication(_listingHash);
+            // because itcr does not use unstakedDeposits, instead of adding the reward to the listing for withdrawal, transfer upon resolution
             require(token.transfer(listings[_listingHash].owner, challengeWinnerReward));
             emit _ChallengeFailed(_listingHash, challengeID, challenges[challengeID].rewardPool, totalWinningTokens);
         }

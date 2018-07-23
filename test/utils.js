@@ -23,6 +23,20 @@ const paramConfig = config.paramDefaults;
 const BN = small => new Eth.BN(small.toString(10), 10);
 
 const utils = {
+  // from: https://github.com/gnosis/safe-contracts/blob/master/test/utils.js
+  logGasUsage: (subject, transactionOrReceipt) => {
+    const receipt = transactionOrReceipt.receipt || transactionOrReceipt;
+    console.log(`Gas costs for ${subject}:`);
+    console.log(`    ${receipt.gasUsed}`);
+  },
+
+  logEvents: (subject, receipt) => {
+    console.log(`Events for ${subject}:`);
+    receipt.logs.forEach((log) => {
+      console.log(`    ${log.event}: ${JSON.stringify(log.args)}`);
+    });
+  },
+
   getProxies: async () => {
     const registryFactory = await RegistryFactory.deployed();
     const registryReceipt = await registryFactory.newRegistryWithToken(
